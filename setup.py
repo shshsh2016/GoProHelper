@@ -13,7 +13,7 @@ https://github.com/pypa/twine
 
 version = '2017.4.29'
 
-dependencies = []
+dependencies = ['requests', 'wireless', 'numpy']
 
 setuptools.setup(install_requires=dependencies,
                  include_package_data=True,
