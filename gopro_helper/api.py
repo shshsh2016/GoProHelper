@@ -1,10 +1,3 @@
-import os
-from collections import OrderedDict
-import socket
-import struct
-
-import requests
-import numpy as np
 
 from . import namespace
 
@@ -14,8 +7,8 @@ base_url = 'http://10.5.5.9/gp/gpControl'
 # templates
 tpl_setting = base_url + '/setting/{feature:}/{value:}'
 tpl_util =    'http://10.5.5.9/gp/{value:}'
-tpl_mode =    base_url + '/command/mode?p={mode:}'
-tpl_submode = base_url + '/command/sub_mode?mode={mode:}&sub_mode={sub:}'
+tpl_mode =     base_url + '/command/mode?p={mode:}'
+tpl_sub_mode = base_url + '/command/sub_mode?mode={mode:}&sub_mode={sub:}'
 tpl_file = 'http://10.5.5.9:8080/videos/DCIM/{}/{}'
 
 #------------------------------------------------
@@ -376,9 +369,6 @@ url_filelist = 'http://10.5.5.9/gp/gpMediaList'
 url_status = 'http://10.5.5.9/gp/gpControl/status'
 
 
-url_analytics = 'http://10.5.5.9/gp/gpControl/analytics/get'
-
-
 ###########################################333333
 
 # API features
@@ -425,288 +415,12 @@ for feature_name, values in video.items():
 
 
 
-#----------------------------------------------------------
-#----------------------------------------------------------
-
-# Status
-# https://github.com/KonradIT/goprowifihack/blob/master/HERO4/CameraStatus.md
-def _status(info):
-    results = OrderedDict()
-
-    ###
-    # n = 'battery'
-    # k = '2'
-    # values = {0: 'Very Low',
-    #           1: 'Low',
-    #           2: 'Half',
-    #           3: 'Full',
-    #           4: 'Charging'}
-    # results[n] = values[info[k]]
-
-    ###
-    n = 'processing'
-    k = '8'
-    results[n] = info[k]
-
-    ###
-    n = 'video_duration'
-    k = '13'
-    results[n] = info[k]
-
-    ###
-    n = 'name'
-    k = '30'
-    results[n] = info[k]
-
-    ###
-    n = 'remaining_photos'
-    k = '34'
-    results[n] = info[k]
-
-    ###
-    n = 'remaining_video'
-    k = '35'
-    results[n] = info[k]
-
-    ###
-    n = 'number_videos'
-    k = '37'
-    results[n] = info[k]
-
-    ###
-    n = 'mode'
-    k = '43'
-    values = {0: 'video',
-              1: 'photo',
-              2: 'multishot'}
-    mode_id = info[k]
-    results[n] = values[mode_id]
-
-    ###
-    n = 'submode'
-    k = '44'
-    values = {0: ['Video', 'Single Pic', 'Burst'],
-              1: ['TL Video', 'Continuous', 'TimeLapse'],
-              2: ['Video+Photo', 'NightPhoto', 'NightLapse']}
-    results[n] = values[info[k]][mode_id]
-
-    ###
-    n = 'storage'
-    k = '54'
-    results[n] = info[k]
-
-    ###
-    # n = 'GPS'
-    # k = '68'
-    # results[n] = info[k] == 1
-
-    ###
-    n = 'battery_level'
-    k = '70'
-    results[n] = int(info[k])
-
-    return namespace.Struct(results)
-
-
-
-def _settings(content, feature_id, feature_options):
-    results = namespace.Struct()
-
-    for ID, index in content.items():
-        ID = int(ID)
-        index = int(index)
-
-        try:
-            name = feature_id[ID]
-
-            try:
-                results[name] = feature_options[name][index]
-            except KeyError:
-                print('unknown index: {} {} {}'.format(ID, name, index))
-
-        except KeyError:
-            # print('unknown ID: {} {}'.format(ID, index))
-            pass
-
-    return results
-
-
-
-def status_settings(raw=False):
-    """Fetch camera status and settings
-    """
-    content = get(url_status)
-
-    if not content:
-        raise ValueError('No response from url: {}'.format(url_status))
-
-    if raw:
-        return content
-    else:
-        results = _status(content['status'])
-
-        if results['mode'] == 'video':
-            results_settings = _settings(content['settings'], feature_video_id, feature_video_options)
-        elif results['mode'] == 'photo':
-            results_settings = _settings(content['settings'], feature_photo_id, feature_photo_options)
-        else:
-          raise ValueError('eh?')
-
-    results.update(results_settings)
-
-    return results
-
-
-
-def get(url, timeout=5):
-    try:
-        resp = requests.get(url, timeout=timeout)
-
-        if resp.status_code != 200:
-            print(resp.reason)
-            print(resp.status_code)
-            msg = 'Problem making request for: {}'.format(url)
-
-            raise requests.RequestException(msg)
-            # content = resp.json()
-            # return content
-
-        return resp.json()
-    except requests.ConnectTimeout:
-        print('timeout')
-
-        return
-
-
-def gather_timelapse(item, folder_name):
-    '''
-    Example: {'t': 't', 'n': 'G0097983.JPG', 'g': '9', 'l': '8448', 'mod': '1488021350', 'm': [], 'b': '7983', 's': '104697936
-    '''
-    name = item['n']
-    group = np.int(item['g'])
-    begin = np.int(item['b'])
-    last = np.int(item['l'])
-    time = np.int(item['mod'])
-
-    b, e = os.path.splitext(item['n'])
-    # base = np.int([b[1:]])
-
-    name_tpl = 'G{:03d}{{:04d}}' + e
-    name_tpl = name_tpl.format(group)
-
-    # Test
-    name_first = name_tpl.format(begin)
-    if not name == name_first:
-        raise ValueError('Unexpected first name: {} != {}'.format(name, name_first))
-
-    # Do it
-    res = []
-    for k in range(begin, last+1):
-        name_k = name_tpl.format(k)
-        url = tpl_file.format(folder_name, name_k)
-
-        res_k = {'url': url, 'time': time}
-
-        res.append(res_k)
-
-    return res
-
-
-def gather_item(item, folder_name):
-    name = item['n']
-    size = np.int(item['s'])
-    time = np.int(item['mod'])
-
-    url = tpl_file.format(folder_name, name)
-
-    res = {'url': url, 'time': time, 'size': size}
-
-    return res
-
-
-
-def filelist(details=False):
-    resp = get(url_filelist, timeout=30)
-    if not resp:
-        raise ValueError('No response from url: {}'.format(url_filelist))
-
-    results = []
-    for folder in resp['media']:
-        folder_name = folder['d']
-
-        if details:
-            results.append(folder)
-        else:
-
-            for item in folder['fs']:
-                kind = item.get('t', None)
-
-                if kind == 't':
-                    res = gather_timelapse(item, folder_name)
-                    results.extend(res)
-                elif kind == 'b':
-                    # burst??
-                    res = gather_timelapse(item, folder_name)
-                    results.extend(res)
-                elif kind == None:
-                    # # Normal
-                    # name = item['n']
-                    # size = np.int(item['s'])
-                    # time = np.int(item['mod'])
-
-                    # url = tpl_file.format(folder_name, name)
-
-                    # res = {'url': url, 'time': time}
-                    res = gather_item(item, folder_name)
-                    results.append(res)
-
-                else:
-                    raise ValueError('Unexpected kind: {}'.format(kind))
-
-    return results
-
-
-
-def download(url):
-    '''
-    http://stackoverflow.com/questions/13137817/
-    how-to-download-image-using-requests/13137873#13137873
-    '''
-    path_out = os.path.realpath(os.path.curdir)
-
-    chunk_size = 1024*128
-    resp = requests.get(url, stream=True)
-
-    if resp.status_code != 200:
-        print(resp.headers)
-        print(resp.status_code)
-        msg = 'Problem making request for: {}'.format(url)
-
-        raise requests.RequestException(msg)
-
-    file_size = resp.headers['content-length']
-
-    print(file_size)
-
-    # Open local file for writing.
-    fname = os.path.basename(url)
-    f = os.path.join(path_out, fname)
-    with open(f, 'wb') as fp:
-        for chunk in resp.iter_content(chunk_size):
-            fp.write(chunk)
-
-    return fname
-
-
-
 
 # IP = '10.5.5.9'
 # MAC = '5C:E0:C5:09:39:31'
-
 # def wake_on_lan(ip=IP, mac=MAC):
 #     '''Command remote device to turn on.
 #     '''
-
 #     # Check macaddress format and try to compensate.
 #     if len(mac) == 12:
 #         pass
@@ -715,18 +429,14 @@ def download(url):
 #         mac = mac.replace(sep, '')
 #     else:
 #         raise ValueError('Unexpected MAC address format {}'.format(mac))
-
 #     if isinstance(mac, str):
 #         mac = bytes(mac.encode())
-
 #     # Pad the synchronization stream.
 #     data = b''.join([b'FFFFFFFFFFFF', mac * 20])
 #     send_data = b''
-
 #     # Split up the hex values and pack.
 #     for i in range(0, len(data), 2):
 #         send_data = b''.join([send_data, struct.pack('B', int(data[i: i + 2], 16))])
-
 #     # Broadcast it to the LAN.
 #     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 #     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
