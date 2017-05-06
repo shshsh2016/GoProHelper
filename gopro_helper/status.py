@@ -57,9 +57,9 @@ def _status(info):
     ###
     n = 'submode'
     k = '44'
-    values = {0: ['Video', 'Single Pic', 'Burst'],
-              1: ['TL Video', 'Continuous', 'TimeLapse'],
-              2: ['Video+Photo', 'NightPhoto', 'NightLapse']}
+    values = {0: ['video', 'single', 'burst'],
+              1: ['timelapse video', 'continuous', 'timelapse'],
+              2: ['Video+Photo', 'night', 'nightlapse']}
     results[n] = values[info[k]][mode_id]
 
     ###
@@ -73,7 +73,7 @@ def _status(info):
     # results[n] = info[k] == 1
 
     ###
-    n = 'battery_level'
+    n = 'battery'
     k = '70'
     results[n] = int(info[k])
 
@@ -122,8 +122,26 @@ def status_settings(raw=False):
         elif results['mode'] == 'photo':
             results_settings = _settings(content['settings'], api.feature_photo_id, api.feature_photo_options)
         else:
-          raise ValueError('eh?')
+          # raise ValueError('multishot not supported')
+          print('multishot settings not supported')
+          results_settings = {}
 
     results.update(results_settings)
 
     return results
+
+
+def pretty_status():
+    """Print pretty status and settings details to console
+    """
+    tpl = '{:16s}: {}'
+    results = status_settings()
+
+    keys = ['name', 'battery', 'gps', 'mode', 'submode', 'resolution', 'white_balance',
+            'color', 'ev', 'protune',
+            'protune_iso_min', 'protune_iso_max',
+            'wdr', 'raw']
+
+    for k in keys:
+        print(tpl.format(k, results[k]))
+
