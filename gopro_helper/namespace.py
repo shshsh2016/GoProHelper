@@ -18,6 +18,7 @@ Authors:
 #-----------------------------------------------------------------------------
 # Imports
 #-----------------------------------------------------------------------------
+from collections import OrderedDict
 import re
 
 __all__ = ['Struct']
@@ -27,7 +28,7 @@ __all__ = ['Struct']
 #-----------------------------------------------------------------------------
 
 
-class Struct(dict):
+class Struct(OrderedDict):
     """A dict subclass with attribute style access.
 
     This dict subclass has a few extra features:

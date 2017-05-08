@@ -1,15 +1,15 @@
 
 
 import os
-from collections import OrderedDict
 
 import requests
 import numpy as np
 
 from . import api
+from .api import get
+
 from .namespace import Struct
 
-from .utility import get
 
 
 def gather_timelapse(item, folder_name):
