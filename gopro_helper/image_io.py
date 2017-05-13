@@ -31,33 +31,30 @@ def write(fp, data, fmt=None, **kwargs):
 
 
 
-def download(url, path_save=None):
-    """Download file from URL
-    """
-    if not path_save:
-        path_save = os.path.realpath(os.path.curdir)
+# def download(url, path_save=None):
+#     """Download file from URL
+#     """
+#     if not path_save:
+#         path_save = os.path.realpath(os.path.curdir)
 
-    chunk_size = 1024*128
-    resp = requests.get(url, stream=True)
+#     chunk_size = 1024*128
+#     resp = requests.get(url, stream=True)
 
-    if resp.status_code != 200:
-        print(resp.headers)
-        print(resp.status_code)
-        msg = 'Problem making request for: {}'.format(url)
+#     if resp.status_code != 200:
+#         print(resp.headers)
+#         print(resp.status_code)
+#         msg = 'Problem making request for: {}'.format(url)
 
-        raise requests.RequestException(msg)
+#         raise requests.RequestException(msg)
 
-    # file_size = resp.headers['content-length']
+#     # Open local file for writing
+#     f = os.path.join(path_save, os.path.basename(url))
+#     with open(f, 'wb') as fp:
+#         for chunk in resp.iter_content(chunk_size):
+#             fp.write(chunk)
 
-    # Open local file for writing
-    f = os.path.join(path_save, os.path.basename(url))
-
-    with open(f, 'wb') as fp:
-        for chunk in resp.iter_content(chunk_size):
-            fp.write(chunk)
-
-    # Done
-    return f
+#     # Done
+#     return f
 
 #------------------------------------------------
 

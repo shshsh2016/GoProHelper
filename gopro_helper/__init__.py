@@ -1,7 +1,7 @@
 
 from . import gopro
 from . import api
-from . import media
+from . import commands
 from . import json_io
 from . import image_io
 
