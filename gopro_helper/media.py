@@ -46,6 +46,7 @@ def gather_timelapse(item, folder_name):
     return res
 
 
+
 def gather_item(item, folder_name):
     name = item['n']
     size = np.int(item['s'])
@@ -60,9 +61,9 @@ def gather_item(item, folder_name):
 
 
 def get_file_list(details=False):
-    resp = get(api.url_filelist, timeout=30)
+    resp = get(api.url_media_list, timeout=30)
     if not resp:
-        raise ValueError('No response from url: {}'.format(api.url_filelist))
+        raise ValueError('No response from url: {}'.format(api.url_media_list))
 
     results = []
     for folder in resp['media']:
@@ -71,7 +72,6 @@ def get_file_list(details=False):
         if details:
             results.append(folder)
         else:
-
             for item in folder['fs']:
                 kind = item.get('t', None)
 
@@ -93,34 +93,3 @@ def get_file_list(details=False):
     return results
 
 #------------------------------------------------
-
-def download(url, path_save=None):
-    """Download file from URL
-    """
-    if not path_save:
-        path_save = os.path.realpath(os.path.curdir)
-
-    chunk_size = 1024*128
-    resp = requests.get(url, stream=True)
-
-    if resp.status_code != 200:
-        print(resp.headers)
-        print(resp.status_code)
-        msg = 'Problem making request for: {}'.format(url)
-
-        raise requests.RequestException(msg)
-
-    # file_size = resp.headers['content-length']
-
-    # Open local file for writing
-    fname = os.path.basename(url)
-    f = os.path.join(path_save, fname)
-
-    with open(f, 'wb') as fp:
-        for chunk in resp.iter_content(chunk_size):
-            fp.write(chunk)
-
-    # Done
-    return fname
-
-

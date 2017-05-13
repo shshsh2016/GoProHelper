@@ -39,6 +39,17 @@ url_media_list = base_addr + api_details['services']['media_list']['url']
 url_shutter_capture  = base_addr + '/gp/gpControl/command/shutter?p=1'
 url_shutter_stop =     base_addr + '/gp/gpControl/command/shutter?p=0'
 
+url_delete_all  = base_addr + '/command/storage/delete/all'
+url_delete_last = base_addr + '/command/storage/delete/last'
+
+tpl_delete_file = base_addr + '/command/storage/delete/{}'
+
+
+
+
+
+
+# Camera modes
 # See section 'camera_mode_map' in API json file.
 url_mode_video = tpl_mode.format(mode=_VIDEO_MODE)
 url_sub_mode_video_video = tpl_sub_mode.format(mode=_VIDEO_MODE, sub=0)
