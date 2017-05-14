@@ -164,7 +164,7 @@ def emit_folder_photos(soup):
                         href = first.a['href']
                         url = _url_base + href
 
-                        if 'jpg' in url.lower():
+                        if '.jpg' in url.lower() or '.mp4' in url.lower():
                             yield url
 
             except AttributeError:
@@ -189,22 +189,20 @@ def get_data_urls():
     return urls
 
 
-
-
 def delete_file(url_file):
     parts = url_file.split('/')
     name = '/' + parts[-2] + '/' + parts[-1]
     url = api.tpl_delete_file.format(name)
 
-    resp = api.get(url)
+    resp = api.get(url, json=False)
 
+    return resp.ok
 
 # def delete_all():
 #     pass
 #
 # def delete_last():
 #     pass
-
 
 
 def download(url, path_save=None):
@@ -225,9 +223,16 @@ def download(url, path_save=None):
 
     # Open local file for writing
     f = os.path.join(path_save, os.path.basename(url))
-    with open(f, 'wb') as fp:
-        for chunk in resp.iter_content(chunk_size):
-            fp.write(chunk)
+
+    try:
+        with open(f, 'wb') as fp:
+            for chunk in resp.iter_content(chunk_size):
+                fp.write(chunk)
+
+    except KeyboardInterrupt:
+        os.remove(f)
+        raise
+
 
     # Done
     return f

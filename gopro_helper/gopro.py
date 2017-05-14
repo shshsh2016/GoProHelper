@@ -60,7 +60,7 @@ class GoProStatus():
         self.widget.close()
 
     def start(self):
-        self.widget = ipywidgets.Textarea()
+        self.widget = ipywidgets.Textarea(font_family='monospace')
         self.widget.layout.width = '400pt'
         self.widget.layout.height = '500pt'
         self.widget.layout.border = '1px solid grey'
