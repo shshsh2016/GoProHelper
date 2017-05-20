@@ -48,6 +48,8 @@ class GoProStatus():
         self._status = '\n'.join(results)
 
     def task(self):
+        """Work task to run in background thread
+        """
         delta = 0.1
         while self.flag_run:
             self.status = status.fetch_camera_info(pretty=True)
@@ -60,7 +62,7 @@ class GoProStatus():
         self.widget.close()
 
     def start(self):
-        self.widget = ipywidgets.Textarea(font_family='monospace')
+        self.widget = ipywidgets.Textarea()
         self.widget.layout.width = '400pt'
         self.widget.layout.height = '500pt'
         self.widget.layout.border = '1px solid grey'

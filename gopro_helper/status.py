@@ -5,6 +5,7 @@ from collections import OrderedDict
 from . import json_io
 from . import api
 from .api import get
+from .namespace import Struct
 
 
 #------------------------------------------------
@@ -136,6 +137,7 @@ def fetch_camera_info(pretty=True):
     # Combine
     info_modes['System'] = info_status
 
+    # info_modes = Struct(info_modes)
     # Done
     return info_modes
 
