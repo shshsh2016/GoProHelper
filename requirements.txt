@@ -1,0 +1,9 @@
+beautifulsoup4
+jupyter
+ipywidgets
+IPython
+notebook
+numpy
+pillow
+requests
+simplejson
