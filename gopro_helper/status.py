@@ -55,7 +55,7 @@ def parse_status_values(camera_status, api_details):
     # 'fwupdate', 'liveview', 'setup', 'stream']
     groups_include = ['system', 'storage', 'app', 'wireless']
 
-    info = {}
+    info = OrderedDict()
     for group in api_details['status']['groups']:
         # Check for group name in set of to-be-extracted details
         group_name = group['group']
@@ -70,34 +70,71 @@ def parse_status_values(camera_status, api_details):
     return info
 
 def _pretty_status(info):
-    keys = ['system_hot', 'system_busy', 'current_time_msec',
-            'internal_battery_percentage', 'remaining_photos', 'remaining_video_time',
-            'remaining_space', 'num_total_photos', 'num_total_videos',
-            'wifi_bars', 'ap_ssid', 'ap_state', 'app_count']
+    # keys = ['system_hot', 'system_busy', 'current_time_msec',
+    #         'internal_battery_percentage', 'remaining_photos', 'remaining_video_time',
+    #         'remaining_space', 'num_total_photos', 'num_total_videos',
+    #         'wifi_bars', 'ap_ssid', 'ap_state', 'app_count']
+    key_pairs = [['internal_battery_percentage', 'Battery'],
+                 ['system_busy', 'Busy'],
+                 ['system_hot', 'Hot'],
+                 ['num_total_photos', 'Photos'],
+                 ['num_total_videos', 'Videos'],
+                 ['remaining_space', 'Space']]
 
-    info_out = {}
-    for k in keys:
-        k_out = k.replace('_', ' ')
-        k_out = ' '.join([s.capitalize() for s in k_out.split()])
-        info_out[k_out] = info[k]
+    info_out = OrderedDict()
+
+    for k_in, k_out in key_pairs:
+        # k_out = k.replace('_', ' ')
+        # k_out = ' '.join([s.capitalize() for s in k_out.split()])
+        info_out[k_out] = info[k_in]
 
     return info_out
 
 
 
 def _pretty_modes(info):
-    keys = {'Video': ['Color', 'White Balance', 'EV Comp', 'Field of View', 'ISO', 'ISO Mode',
-                      'Low Light', 'Frames Per Second', 'Shutter', 'Resolution',
-                      'Video Stabilization', 'Sharpness', 'Protune'],
-            'Photo': ['Color', 'EV Comp', 'ISO MIN', 'ISO MAX', 'WDR', 'Shutter', 'Megapixels',
-                      'RAW', 'Protune', 'White Balance', 'Sharpness'],
-            'Setup': ['Current Flat Mode', 'Auto Off', 'GPS']}
+    # keys = {'Video': ['Color', 'White Balance', 'EV Comp', 'Field of View', 'ISO', 'ISO Mode',
+    #                   'Low Light', 'Frames Per Second', 'Shutter', 'Resolution',
+    #                   'Video Stabilization', 'Sharpness', 'Protune'],
+    #         'Photo': ['Color', 'EV Comp', 'ISO MIN', 'ISO MAX', 'WDR', 'Shutter', 'Megapixels',
+    #                   'RAW', 'Protune', 'White Balance', 'Sharpness'],
+    #         'Setup': ['Current Flat Mode', 'Auto Off', 'GPS']}
+    keys = {'Video': [
+                      ['Frames Per Second', 'FPS'],
+                       'Resolution',
+                       'Shutter',
+                       'ISO',
+                       'ISO Mode',
+                       'EV Comp',
+                       'Low Light',
+                      ['White Balance', 'White'],
+                       'Color',
+                       'Protune',
+                       'Sharpness',
+                      ['Field of View', 'FOV'],
+                      ['Video Stabilization', 'Stabilize']],
+            'Photo': [ 'Megapixels',
+                       'Shutter',
+                       'ISO MIN',
+                       'ISO MAX',
+                       'EV Comp',
+                       'WDR',
+                      ['White Balance', 'White'],
+                       'Color',
+                       'Protune',
+                       'Sharpness',
+                       'RAW'],
+            'Setup': [['Current Flat Mode', 'Mode'], 'Auto Off', 'GPS']}
 
-    info_out = {}
+    info_out = OrderedDict()
     for n, g in keys.items():
         info_out[n] = {}
         for k in g:
-            info_out[n][k] = info[n][k]
+            if isinstance(k, str):
+                info_out[n][k] = info[n][k]
+            else:
+                k_in, k_out = k
+                info_out[n][k_out] = info[n][k_in]
 
     return info_out
 

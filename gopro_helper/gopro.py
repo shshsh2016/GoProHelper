@@ -1,6 +1,7 @@
 
 import time
 import threading
+from collections import OrderedDict
 
 import ipywidgets
 import IPython
@@ -8,6 +9,21 @@ import IPython
 from . import status
 from .api import get
 
+
+
+
+_html_template = """
+<p style="font-family:  DejaVu Sans Mono, Consolas, Lucida Console, Monospace;'
+          font-variant: normal;
+          font-weight:  normal;
+          font-style:   normal;
+          font-size:    13pt; ">
+    <code style=display:block>
+        {content:}
+    </code>
+</p>
+"""
+    # <code style=display:block;white-space:pre-wrap>
 
 
 class GoProStatus():
@@ -30,10 +46,11 @@ class GoProStatus():
             self._status = 'None'
             return
 
-        results = []
-        results.append(time.ctime())
+        results = ['']
+        # results.append(time.ctime())
 
-        sections = ['Setup', 'Photo', 'Video', 'System']
+        # sections = ['Setup', 'Photo', 'Video', 'System']
+        sections = ['Photo', 'Video', 'System']
         for s in sections:
             if s in new_status:
                 v = new_status[s]
@@ -42,7 +59,7 @@ class GoProStatus():
                 results.append(text)
 
                 for x,y in v.items():
-                    text = '    {:25s}: {}'.format(x,y)
+                    text = '   {:11s}:  {}'.format(x,y)
                     results.append(text)
 
         self._status = '\n'.join(results)
@@ -53,7 +70,10 @@ class GoProStatus():
         delta = 0.1
         while self.flag_run:
             self.status = status.fetch_camera_info(pretty=True)
-            self.widget.value = self.status
+
+            # text = self.status
+            text = '<br>'.join(self.status.split('\n'))
+            self.widget.value = _html_template.format(content=text)
 
             time_0 = time.time()
             while self.flag_run and time.time() - time_0 < self.interval:
@@ -61,12 +81,12 @@ class GoProStatus():
 
         self.widget.close()
 
+
     def start(self):
-        self.widget = ipywidgets.Textarea()
-        self.widget.layout.width = '400pt'
-        self.widget.layout.height = '500pt'
+        self.widget = ipywidgets.HTML()
+        self.widget.layout.width = '190pt'
+        self.widget.layout.height = '370pt'
         self.widget.layout.border = '1px solid grey'
-        self.widget.layout.font_family = 'DejaVu Sans Mono, Consolas, Lucida Console, Monospace'
 
         IPython.display.display(self.widget)
 
@@ -86,3 +106,4 @@ class GoProStatus():
             return self._thread.is_alive()
         else:
             return False
+
