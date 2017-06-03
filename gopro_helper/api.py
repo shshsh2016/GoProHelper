@@ -3,7 +3,7 @@ import os
 import requests
 
 from . import json_io
-
+from . import namespace
 
 #------------------------------------------------
 # Load JSON API information
@@ -23,16 +23,16 @@ _MULTI_MODE = 2
 base_addr = 'http://10.5.5.9'
 
 # Templates
-tpl_setting =         base_addr + '/gp/gpControl/setting/{feature:}/{value:}'
-tpl_mode =            base_addr + '/gp/gpControl/command/mode?p={mode:}'
-tpl_sub_mode =        base_addr + '/gp/gpControl/command/sub_mode?mode={mode:}&sub_mode={sub:}'
-tpl_delete_file =     base_addr + '/gp/gpControl/command/storage/delete?p={}'
-tpl_file =            base_addr + ':8080/videos/DCIM/{}/{}'
+tpl_setting =     base_addr + '/gp/gpControl/setting/{feature:}/{value:}'
+tpl_mode =        base_addr + '/gp/gpControl/command/mode?p={mode:}'
+tpl_sub_mode =    base_addr + '/gp/gpControl/command/sub_mode?mode={mode:}&sub_mode={sub:}'
+tpl_delete_file = base_addr + '/gp/gpControl/command/storage/delete?p={}'
+tpl_file =        base_addr + ':8080/videos/DCIM/{}/{}'
 
 # Simple commands
-url_browse =          base_addr + ':8080/videos/DCIM'
-url_status =          base_addr + '/gp/gpControl/status'
-url_media_list =      base_addr + '/gp/gpMediaList'
+url_browse =      base_addr + ':8080/videos/DCIM'
+url_status =      base_addr + '/gp/gpControl/status'
+url_media_list =  base_addr + '/gp/gpMediaList'
 
 url_shutter_capture = base_addr + '/gp/gpControl/command/shutter?p=1'
 url_shutter_stop =    base_addr + '/gp/gpControl/command/shutter?p=0'
@@ -68,14 +68,45 @@ def get(url, json=True, timeout=5):
             print(resp.reason)
             print(resp.status_code)
 
-            raise requests.RequestException('GET exception: {}'.format(url))
+            return resp
+            # raise requests.RequestException('GET exception: {}'.format(url))
 
     except requests.ConnectTimeout:
         return
     except OSError:
         return
 
+#------------------------------------------------
+# Helper functions
+def _mode_details(mode):
+    """Return feature details direct from camara JSON file
+    """
+    for info in api_details['modes']:
+        if info['path_segment'] == mode:
+            return info['settings']
 
+def video_mode_details():
+    return _mode_details('video')
+
+def photo_mode_details():
+    return _mode_details('photo')
+
+
+def feature_choices(mode, fid):
+    """Given mode and feature ID, return feature name and key-value pairs of available choices
+    """
+    details = _mode_details(mode)
+
+    options = namespace.Struct()
+    for item in details:
+        if item['id'] == fid:
+            name = item['display_name']
+            for entry in item['options']:
+                options[entry['display_name']] = entry['value']
+
+            return name, options
+
+#------------------------------------------------
 
 if __name__ == '__main__':
     pass

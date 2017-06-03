@@ -4,7 +4,7 @@ from collections import OrderedDict
 
 from . import json_io
 from . import api
-from .api import get
+
 from .namespace import Struct
 
 
@@ -21,17 +21,17 @@ def entry_option_value(entry, index):
 
 
 
-def parse_mode_values(camera_settings, api_details):
+def parse_mode_values(camera_settings):
     """Associate camera numerical setting values with human-readable text.
     Store in mode-structured dict.
     """
     # Main loop over top-level modes
-    info = OrderedDict()
-    modes_include = ['Video', 'Photo', 'Setup']   # 'Multishot', 'Audio', 'Playback', 'Broadcast']
-    for mode in api_details['modes']:
-        if mode['display_name'] in modes_include:
+    info = Struct()
+    modes_include = ['video', 'photo', 'setup']   # 'Multishot', 'Audio', 'Playback', 'Broadcast']
+    for mode in api.api_details['modes']:
+        if mode['display_name'].lower() in modes_include:
 
-            info_mode = {}
+            info_mode = Struct()
             for entry in mode['settings']:
 
                 # Find corresponding entry and value in camera settings output
@@ -41,25 +41,25 @@ def parse_mode_values(camera_settings, api_details):
 
                 info_mode[entry['display_name']] = value
 
-            info[mode['display_name']] = info_mode
+            info[mode['display_name'].lower()] = info_mode
 
     # Done
     return info
 
 
 
-def parse_status_values(camera_status, api_details):
+def parse_status_values(camera_status):
     """Extact a few non-retarded bits of information from 'status' group.  Store in flat dict.
     """
     # known groups:  ['system', 'storage', 'broadcast', 'wireless',
     # 'fwupdate', 'liveview', 'setup', 'stream']
     groups_include = ['system', 'storage', 'app', 'wireless']
 
-    info = OrderedDict()
-    for group in api_details['status']['groups']:
+    info = Struct()
+    for group in api.api_details['status']['groups']:
         # Check for group name in set of to-be-extracted details
         group_name = group['group']
-        if group_name in groups_include:
+        if group_name.lower() in groups_include:
             for entry in group['fields']:
                 id_str = str(entry['id'])
                 value = camera_status[id_str]
@@ -68,6 +68,7 @@ def parse_status_values(camera_status, api_details):
 
     # Done
     return info
+
 
 def _pretty_status(info):
     # keys = ['system_hot', 'system_busy', 'current_time_msec',
@@ -99,7 +100,7 @@ def _pretty_modes(info):
     #         'Photo': ['Color', 'EV Comp', 'ISO MIN', 'ISO MAX', 'WDR', 'Shutter', 'Megapixels',
     #                   'RAW', 'Protune', 'White Balance', 'Sharpness'],
     #         'Setup': ['Current Flat Mode', 'Auto Off', 'GPS']}
-    keys = {'Video': [
+    keys = {'video': [
                       ['Frames Per Second', 'FPS'],
                        'Resolution',
                        'Shutter',
@@ -113,7 +114,7 @@ def _pretty_modes(info):
                        'Sharpness',
                       ['Field of View', 'FOV'],
                       ['Video Stabilization', 'Stabilize']],
-            'Photo': [ 'Megapixels',
+            'photo': [ 'Megapixels',
                        'Shutter',
                        'ISO MIN',
                        'ISO MAX',
@@ -124,9 +125,9 @@ def _pretty_modes(info):
                        'Protune',
                        'Sharpness',
                        'RAW'],
-            'Setup': [['Current Flat Mode', 'Mode'], 'Auto Off', 'GPS']}
+            'setup': [['Current Flat Mode', 'Mode'], 'Auto Off', 'GPS']}
 
-    info_out = OrderedDict()
+    info_out = Struct()
     for n, g in keys.items():
         info_out[n] = {}
         for k in g:
@@ -139,14 +140,27 @@ def _pretty_modes(info):
     return info_out
 
 
+def current_mode():
+    content = api.get(api.url_status)
+    camera_status = content['status']
 
-def fetch_camera_info(pretty=True):
-    """Fetch status and mode settings information from camera.  Optionally return as nicely-
-    formatted dict.
+    info_status = parse_status_values(camera_status)
+
+    if info_status.mode == api._VIDEO_MODE:
+        return 'video'
+    elif info_status.mode == api._PHOTO_MODE:
+        return 'photo'
+    else:
+      raise ValueError(info_status.mode)
+
+
+def fetch_camera_info(pretty=False):
+    """Fetch status and mode settings information from camera.
+    Optionally return as nicely-formatted dict.
     """
     # Fetch info from camera.  Camera status GET returns two objects: 'status' and 'settings'.
     # The 'settings' object includes all 'mode' information.
-    content = get(api.url_status)
+    content = api.get(api.url_status)
 
     if not content:
         return
@@ -155,28 +169,28 @@ def fetch_camera_info(pretty=True):
     camera_settings = content['settings']
 
     # Parse status and settings details
-    info_status = parse_status_values(camera_status, api.api_details)
-    info_modes = parse_mode_values(camera_settings, api.api_details)
-    mode = info_status['mode']
+    info_status = parse_status_values(camera_status)
+    info = parse_mode_values(camera_settings)
 
     if pretty:
         info_status = _pretty_status(info_status)
-        info_modes = _pretty_modes(info_modes)
+        info = _pretty_modes(info)
 
     # Exclude non-current mode info
-    if mode == api._VIDEO_MODE:
-        info_modes.pop('Photo')
-    elif mode == api._PHOTO_MODE:
-        info_modes.pop('Video')
+    if info_status.mode == api._VIDEO_MODE:
+        info.mode = 'video'
+        info.pop('photo')
+    elif info_status.mode == api._PHOTO_MODE:
+        info.mode = 'photo'
+        info.pop('video')
     else:
         pass
 
     # Combine
-    info_modes['System'] = info_status
+    info['system'] = info_status
 
-    # info_modes = Struct(info_modes)
     # Done
-    return info_modes
+    return info
 
 #------------------------------------------------
 

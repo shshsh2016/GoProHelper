@@ -6,22 +6,14 @@ import numpy as np
 import requests
 import bs4
 
+import data_io
+from progress_bar import bar
+
 from . import api
 from . import status
-# from . import image_io
 
 from .namespace import Struct
 
-
-"""
-Pre-configured mode URLs:
-- url_mode_video
-- url_sub_mode_video_video
-
-- url_mode_photo
-- url_sub_mode_photo_photo
-- url_sub_mode_photo_night
-"""
 
 #------------------------------------------------
 # Camera modes
@@ -33,7 +25,7 @@ def set_mode_photo():
     resp = api.get(api.url_sub_mode_photo_photo)
     info = status.fetch_camera_info()
 
-    assert('Photo' in info)
+    assert('photo' in info)
 
 
 def set_mode_video():
@@ -43,7 +35,7 @@ def set_mode_video():
     resp = api.get(api.url_sub_mode_video_video)
     info = status.fetch_camera_info()
 
-    assert('Video' in info)
+    assert('video' in info)
 
 
 #------------------------------------------------
@@ -57,11 +49,22 @@ def shutter_stop():
     resp = api.get(api.url_shutter_stop)
 
 #------------------------------------------------
-# more settings
+# General settings
+def get_status():
+    """Fetch current status and settings from camera
+    """
+    return api.get(api.url_status)
 
-# def video_set_
+
+def set_feature_value(fid, value):
+    """Instruct camera to set feature to specified value
+    """
+    url = api.tpl_setting.format(feature=fid, value=value)
+    return api.get(url)
 
 
+
+#################################################
 #------------------------------------------------
 # Video and photo files
 _url_base = api.url_browse.split('/videos')[0]
@@ -133,11 +136,6 @@ def delete_file(url_file):
 
     return resp.ok
 
-# def delete_all():
-#     pass
-#
-# def delete_last():
-#     pass
 
 
 def download(url, path_save=None):
@@ -173,77 +171,29 @@ def download(url, path_save=None):
     return f
 
 
-################################
-# Old Stuff
-#-------------------------------
-# Media
+def local_data(path_save='./data'):
+    """Return list of locally-stored data files
+    """
+    files = data_io.find(path_save, ['*.JPG', '*.jpg', '*.MP4', '*.mp4'])
+    names = [os.path.basename(f) for f in files]
 
-# def _gather_timelapse(item, folder_name):
-#     '''
-#     Example: {'t': 't',
-#               'n': 'G0097983.JPG',
-#               'g': '9',
-#               'l': '8448',
-#               'mod': '1488021350',
-#               'm': [],
-#               'b': '7983',
-#               's': '104697936}
-#     '''
-#     name = item['n']
-#     group = np.int(item['g'])
-#     begin = np.int(item['b'])
-#     last = np.int(item['l'])
-#     time = np.int(item['mod'])
-#     b, e = os.path.splitext(item['n'])
-#     # base = np.int([b[1:]])
-#     name_tpl = 'G{:03d}{{:04d}}' + e
-#     name_tpl = name_tpl.format(group)
-#     # Test
-#     name_first = name_tpl.format(begin)
-#     if not name == name_first:
-#         raise ValueError('Unexpected first name: {} != {}'.format(name, name_first))
-#     # Do it
-#     res = []
-#     for k in range(begin, last+1):
-#         name_k = name_tpl.format(k)
-#         fname = folder_name + '/' + name_k
-#         url = api.tpl_file.format(folder_name, name_k)
-#         res_k = {'url': url, 'time': time, 'fname': fname}
-#         res.append(res_k)
-#     return res
-# def _gather_item(item, folder_name):
-#     name = item['n']
-#     size = np.int(item['s'])
-#     time = np.int(item['mod'])
-#     fname = folder_name + '/' + name
-#     url = api.tpl_file.format(folder_name, name)
-#     res = {'url': url, 'time': time, 'size': size, 'fname': fname}
-#     return [res]
-# def get_file_list(details=False):
-#     resp = api.get(api.url_media_list, timeout=30)
-#     if not resp:
-#         raise ValueError('No response from url: {}'.format(api.url_media_list))
-#     results = []
-#     for folder in resp['media']:
-#         folder_name = folder['d']
-#         if details:
-#             results.append(folder)
-#         else:
-#             for item in folder['fs']:
-#                 kind = item.get('t', None)
-#                 if kind == 't':
-#                     # timelapse
-#                     res = _gather_timelapse(item, folder_name)
-#                 elif kind == 'b':
-#                     # burst
-#                     res = _gather_timelapse(item, folder_name)
-#                 elif kind == None:
-#                     # normal
-#                     res = _gather_item(item, folder_name)
-#                 else:
-#                     raise ValueError('Unexpected kind: {}'.format(kind))
-#                 results.extend(res)
-#     return results
+    return names
+
+
+def update_local_data(path_save='./data', delete=True):
+    """Move any new photos or videos from camera to local storage
+    """
+    local_names = local_data(path_save)
+    data_urls = get_data_urls()
+
+    for url in bar(data_urls):
+        name = os.path.basename(url)
+        if name not in local_names:
+            f = download(url, path_save)
+
+        if delete:
+            delete_file(url)
+
 
 #------------------------------------------------
 
