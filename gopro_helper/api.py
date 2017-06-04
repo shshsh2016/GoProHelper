@@ -41,7 +41,7 @@ url_delete_all  =     base_addr + '/gp/gpControl/command/storage/delete/all'
 url_delete_last =     base_addr + '/gp/gpControl/command/storage/delete/last'
 
 
-
+#------------------------------------------------
 # Camera modes
 # See section 'camera_mode_map' in API json file.
 url_mode_video = tpl_mode.format(mode=_VIDEO_MODE)
@@ -76,6 +76,38 @@ def get(url, json=True, timeout=5):
     except OSError:
         return
 
+#----------------------------------------
+# Camera feature IDs
+_feature_id = namespace.Struct()
+
+_feature_id.video = namespace.Struct()
+_feature_id.video.FOV =         4
+_feature_id.video.Resolution =  2
+_feature_id.video.FPS =         3
+_feature_id.video.Shutter =    73
+_feature_id.video.Stab =       78
+_feature_id.video.EV =         15
+_feature_id.video.ISO =        13
+_feature_id.video.ISO_mode =   74
+_feature_id.video.Low_light =   8
+_feature_id.video.Protune =    10
+_feature_id.video.White =      11
+_feature_id.video.Color =      12
+_feature_id.video.Sharpness =  14
+
+_feature_id.photo = namespace.Struct()
+_feature_id.photo.Resolution = 17
+_feature_id.photo.Shutter =    97
+_feature_id.photo.EV =         26
+_feature_id.photo.ISO_min =    75
+_feature_id.photo.ISO_max =    24
+_feature_id.photo.Protune =    21
+_feature_id.photo.WDR =        77
+_feature_id.photo.White =      22
+_feature_id.photo.Color =      23
+_feature_id.photo.RAW =        82
+
+
 #------------------------------------------------
 # Helper functions
 def _mode_details(mode):
@@ -85,11 +117,36 @@ def _mode_details(mode):
         if info['path_segment'] == mode:
             return info['settings']
 
+
 def video_mode_details():
     return _mode_details('video')
 
+
 def photo_mode_details():
     return _mode_details('photo')
+
+
+def feature_id_mode(fid):
+    """Determine mode to which specified feature ID belongs: 'photo' or 'video'
+    """
+    mode = None
+    for m in ['photo', 'video']:
+        for item in _mode_details(m):
+            if item['id'] == fid:
+                if not mode:
+                    mode = m
+                else:
+                    raise ValueError('Found multiple entries for feature: {}'.format(fid))
+
+    return mode
+
+
+def feature_id_name(mode, feature_id):
+    """Return feature name belonging to supplied ID
+    """
+    for name, fid in _feature_id[mode]:
+        if feature_id == fid:
+            return name
 
 
 def feature_choices(mode, fid):
@@ -100,11 +157,30 @@ def feature_choices(mode, fid):
     options = namespace.Struct()
     for item in details:
         if item['id'] == fid:
-            name = item['display_name']
+            feature_name = item['display_name']
             for entry in item['options']:
                 options[entry['display_name']] = entry['value']
 
-            return name, options
+            return feature_name, options
+
+
+
+def feature_current_value(fid):
+    """Return camera's current value for specified feature ID
+    """
+    content = gopro.get(gopro.api.url_status)
+    settings = content['settings']
+
+    try:
+        value = settings[str(fid)]
+    except KeyError:
+        raise ValueError('Invalid feature ID {}'.format(fid))
+
+    return value
+
+
+
+
 
 #------------------------------------------------
 

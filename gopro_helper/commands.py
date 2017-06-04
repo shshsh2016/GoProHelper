@@ -39,8 +39,7 @@ def set_mode_video():
 
 
 #------------------------------------------------
-# Shutter
-
+# Shutter control
 def shutter_capture():
     resp = api.get(api.url_shutter_capture)
 
@@ -50,10 +49,18 @@ def shutter_stop():
 
 #------------------------------------------------
 # General settings
-def get_status():
+def get_status_settings():
     """Fetch current status and settings from camera
     """
-    return api.get(api.url_status)
+    content = api.get(api.url_status)
+
+    if not content:
+        return
+
+    status = Struct(content['status'])
+    settings = Struct(content['settings'])
+
+    return status, settings
 
 
 def set_feature_value(fid, value):

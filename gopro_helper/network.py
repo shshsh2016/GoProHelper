@@ -62,6 +62,7 @@ def current_connection():
         # 'connection': {'id': 'GP26528824 2', 'uuid': 'd94b1be3-6cfc-465e-bbd4-66e26c546ad5', 'type':
         # print(settings)
 
+
 def scan():
     """Display available WiFi access points
     """
@@ -101,15 +102,21 @@ def find_wifi_connection(ssid):
             continue
 
     # Nothing found...
-
+    return None
 
 
 def find_wifi_device():
     """Search for WiFi device
     """
+    found = []
     for device in NM.NetworkManager.GetDevices():
         if device.DeviceType == NM.NM_DEVICE_TYPE_WIFI:
-            return device
+            found.append(device)
+
+    if len(found) > 1:
+        raise ValueError('Found multiple devices...')
+
+    return found[0]
 
 
 def connect_wifi(ssid):
@@ -117,6 +124,8 @@ def connect_wifi(ssid):
     """
     # Connection information
     conn = find_wifi_connection(ssid)
+    if not conn:
+        raise ValueError('Connection not found (or not known?) {}'.format(ssid))
 
     # Device information
     device = find_wifi_device()
