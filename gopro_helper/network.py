@@ -2,7 +2,68 @@ import os
 import time
 
 import NetworkManager as NM
+import requests
 
+from .namespace import Struct
+
+
+def get(url, json=True, timeout=5):
+    """Handy helper to GET information from URL
+    """
+    try:
+        resp = requests.get(url, timeout=timeout)
+
+        if resp.status_code == 200:
+            if json:
+                return resp.json()
+            else:
+                return resp
+        else:
+            print(resp.reason)
+            print(resp.status_code)
+
+            return resp
+            # raise requests.RequestException('GET exception: {}'.format(url))
+
+    except requests.ConnectTimeout:
+        return
+    except OSError:
+        return
+
+
+
+def download(url, path_save=None):
+    """Download file from URL
+    """
+    if not path_save:
+        path_save = os.path.realpath(os.path.curdir)
+
+    chunk_size = 1024*128
+    resp = requests.get(url, stream=True)
+
+    if resp.status_code != 200:
+        print(resp.headers)
+        print(resp.status_code)
+        msg = 'Problem making request for: {}'.format(url)
+
+        raise requests.RequestException(msg)
+
+    # Open local file for writing
+    f = os.path.join(path_save, os.path.basename(url))
+
+    try:
+        with open(f, 'wb') as fp:
+            for chunk in resp.iter_content(chunk_size):
+                fp.write(chunk)
+
+    except KeyboardInterrupt:
+        os.remove(f)
+        raise
+
+    # Done
+    return f
+
+#################################################
 
 
 def display_connection_details():
@@ -172,4 +233,9 @@ def check_state(device, timeout=60):
 
     except KeyboardInterrupt:
         return
+
+#------------------------------------------------
+
+if __name__ == '__main__':
+    pass
 

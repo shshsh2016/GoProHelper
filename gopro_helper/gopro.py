@@ -9,7 +9,8 @@ import IPython
 from . import api
 from . import status
 from . import commands
-from . import namespace
+from .network import get
+from .namespace import Struct
 
 
 _html_template = """
@@ -171,7 +172,7 @@ class GoProSettings():
         info = status.fetch_camera_info()
         self.mode = info.mode
 
-        self._widgets = namespace.Struct()
+        self._widgets = Struct()
         for name, fid in api._feature_id[self.mode].items():
             self._widgets[name] = feature_dropdown_widget(mode, fid, name)
 
@@ -240,4 +241,9 @@ class GoProSettings():
             return self._thread.is_alive()
         else:
             return False
+
+#------------------------------------------------
+
+if __name__ == '__main__':
+    pass
 

@@ -2,15 +2,15 @@
 import os
 from collections import OrderedDict
 
-from . import json_io
 from . import api
-
+from . import commands
+from .network import get
 from .namespace import Struct
 
 
 #------------------------------------------------
 # Current status and settings
-def entry_option_value(entry, index):
+def _entry_option_value(entry, index):
     for option in entry['options']:
         if option['value'] == index:
             # Return nice text value
@@ -39,7 +39,7 @@ def parse_mode_values(camera_settings):
                 # Find corresponding entry and value in camera settings output
                 id_str = str(entry['id'])
                 index = camera_settings[id_str]
-                value = entry_option_value(entry, index)
+                value = _entry_option_value(entry, index)
 
                 info_mode[entry['display_name']] = value
 
@@ -73,6 +73,50 @@ def parse_status_values(camera_status):
     return info
 
 
+
+def fetch_camera_info():
+    """Fetch status and mode settings information from camera.
+    """
+    camera_status, camera_settings = commands.get_status_settings()
+    if not camera_status:
+        return
+
+    # Parse status and settings details
+    info_status = parse_status_values(camera_status)
+    info = parse_mode_values(camera_settings)
+
+    if pretty:
+        raise ValueError('no longer supported')
+        # info_status = _pretty_status(info_status)
+        # info = _pretty_modes(info)
+
+    # Exclude non-current mode info
+    if info_status.mode == api._VIDEO_MODE:
+        info.mode = 'video'
+        info.pop('photo')
+    elif info_status.mode == api._PHOTO_MODE:
+        info.mode = 'photo'
+        info.pop('video')
+    else:
+        pass
+
+    # Combine
+    info['system'] = info_status
+
+    # Done
+    return info
+
+
+# def current_mode():
+#     content = get(api.url_status)
+#     camera_status = content['status']
+#     info_status = parse_status_values(camera_status)
+#     if info_status.mode == api._VIDEO_MODE:
+#         return 'video'
+#     elif info_status.mode == api._PHOTO_MODE:
+#         return 'photo'
+#     else:
+#       raise ValueError(info_status.mode)
 # def _pretty_status(info):
 #     # keys = ['system_hot', 'system_busy', 'current_time_msec',
 #     #         'internal_battery_percentage', 'remaining_photos', 'remaining_video_time',
@@ -134,59 +178,6 @@ def parse_status_values(camera_status):
 #                 info_out[n][k_out] = info[n][k_in]
 #     return info_out
 
-
-def current_mode():
-    content = api.get(api.url_status)
-    camera_status = content['status']
-
-    info_status = parse_status_values(camera_status)
-
-    if info_status.mode == api._VIDEO_MODE:
-        return 'video'
-    elif info_status.mode == api._PHOTO_MODE:
-        return 'photo'
-    else:
-      raise ValueError(info_status.mode)
-
-
-def fetch_camera_info(pretty=False):
-    """Fetch status and mode settings information from camera.
-    Optionally return as nicely-formatted dict.
-    """
-    # Fetch info from camera.  Camera status GET returns two objects: 'status' and 'settings'.
-    # The 'settings' object includes all 'mode' information.
-    content = api.get(api.url_status)
-
-    if not content:
-        return
-
-    camera_status = content['status']
-    camera_settings = content['settings']
-
-    # Parse status and settings details
-    info_status = parse_status_values(camera_status)
-    info = parse_mode_values(camera_settings)
-
-    if pretty:
-        raise ValueError('no longer supported')
-        # info_status = _pretty_status(info_status)
-        # info = _pretty_modes(info)
-
-    # Exclude non-current mode info
-    if info_status.mode == api._VIDEO_MODE:
-        info.mode = 'video'
-        info.pop('photo')
-    elif info_status.mode == api._PHOTO_MODE:
-        info.mode = 'photo'
-        info.pop('video')
-    else:
-        pass
-
-    # Combine
-    info['system'] = info_status
-
-    # Done
-    return info
 
 #------------------------------------------------
 

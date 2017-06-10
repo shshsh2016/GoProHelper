@@ -1,9 +1,8 @@
 
 import os
-import requests
 
 from . import json_io
-from . import namespace
+from .namespace import Struct
 
 #------------------------------------------------
 # Load JSON API information
@@ -53,34 +52,11 @@ url_sub_mode_photo_night = tpl_sub_mode.format(mode=_PHOTO_MODE, sub=2)
 
 #------------------------------------------------
 
-def get(url, json=True, timeout=5):
-    """Handy helper to GET information from URL
-    """
-    try:
-        resp = requests.get(url, timeout=timeout)
-
-        if resp.status_code == 200:
-            if json:
-                return resp.json()
-            else:
-                return resp
-        else:
-            print(resp.reason)
-            print(resp.status_code)
-
-            return resp
-            # raise requests.RequestException('GET exception: {}'.format(url))
-
-    except requests.ConnectTimeout:
-        return
-    except OSError:
-        return
-
 #----------------------------------------
 # Camera feature IDs
-_feature_id = namespace.Struct()
+_feature_id = Struct()
 
-_feature_id.video = namespace.Struct()
+_feature_id.video = Struct()
 _feature_id.video.FOV =         4
 _feature_id.video.Resolution =  2
 _feature_id.video.FPS =         3
@@ -95,7 +71,7 @@ _feature_id.video.White =      11
 _feature_id.video.Color =      12
 _feature_id.video.Sharpness =  14
 
-_feature_id.photo = namespace.Struct()
+_feature_id.photo = Struct()
 _feature_id.photo.Resolution = 17
 _feature_id.photo.Shutter =    97
 _feature_id.photo.EV =         26
@@ -141,12 +117,13 @@ def feature_id_mode(fid):
     return mode
 
 
-def feature_id_name(mode, feature_id):
+
+def feature_id_name(mode, fid):
     """Return feature name belonging to supplied ID
     """
-    for name, fid in _feature_id[mode]:
-        if feature_id == fid:
-            return name
+    for name_k, fid_k in _feature_id[mode]:
+        if fid == fid_k:
+            return name_k
 
 
 def feature_choices(mode, fid):
@@ -154,7 +131,7 @@ def feature_choices(mode, fid):
     """
     details = _mode_details(mode)
 
-    options = namespace.Struct()
+    options = Struct()
     for item in details:
         if item['id'] == fid:
             feature_name = item['display_name']
@@ -162,24 +139,6 @@ def feature_choices(mode, fid):
                 options[entry['display_name']] = entry['value']
 
             return feature_name, options
-
-
-
-def feature_current_value(fid):
-    """Return camera's current value for specified feature ID
-    """
-    content = gopro.get(gopro.api.url_status)
-    settings = content['settings']
-
-    try:
-        value = settings[str(fid)]
-    except KeyError:
-        raise ValueError('Invalid feature ID {}'.format(fid))
-
-    return value
-
-
-
 
 
 #------------------------------------------------

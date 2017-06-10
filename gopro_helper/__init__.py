@@ -5,7 +5,5 @@ from . import json_io
 from . import image_io
 from . import network
 
-# from . import gopro
-
-from .api import get
+from .network import get
 from .gopro import *
