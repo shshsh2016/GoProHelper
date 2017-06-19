@@ -3,6 +3,7 @@ import time
 
 import NetworkManager as NM
 import requests
+import numpy as np
 
 from .namespace import Struct
 
@@ -124,14 +125,35 @@ def current_connection():
         # print(settings)
 
 
-def scan():
+def scan(pretty=True):
     """Display available WiFi access points
     """
+    found = {}
+
     for device in NM.NetworkManager.GetDevices():
         if device.DeviceType == NM.NM_DEVICE_TYPE_WIFI:
             for ap in device.GetAccessPoints():
-                print('{:15s}  {:3d}%'.format(ap.Ssid, ap.Strength))  # , ap.Frequency/1000))
+                if ap.Ssid in found:
+                    if ap.Strength > found[ap.Ssid]:
+                        found[ap.Ssid] = ap.Strength
+                else:
+                    found[ap.Ssid] = ap.Strength
 
+    names = np.asarray(list(found.keys()))
+
+    ix = np.argsort([n.lower() for n in names])
+
+    results = []
+    for n in names[ix]:
+        results.append([n, found[n]])
+
+    if pretty:
+        pretty_results = []
+        for ssid, strength in results:
+            pretty_results.append('{:15s}: {}'.format(ssid, strength))
+        return pretty_results
+    else:
+        return results
 
 
 def find_wifi_access_point(ssid):
@@ -201,6 +223,8 @@ def connect_wifi(ssid):
 
 
 def check_state(device, timeout=60):
+    """Continue querying network status and printing new values to console.  Return when network is ready.
+    """
     time_delta = 0.01
     state_last = -1
 
