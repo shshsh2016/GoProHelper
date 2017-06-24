@@ -26,6 +26,7 @@ class Status(Task):
     def initialize(self):
         self._widget = MonoText()
         IPython.display.display(self._widget)
+        self._widget.text = 'waiting for data...'
 
     def _update_data(self, status=None):
         """Update internal state information, being aware that external entities may have
@@ -48,19 +49,22 @@ class Status(Task):
     def _update_display(self):
         """Update display widget with new text information
         """
-        # Maximum label width
-        L = 0
-        for k in self._status.keys():
-            if len(k) > L:
-                L = len(k)
+        if self._status:
+            # Maximum label width
+            L = 0
+            for k in self._status.keys():
+                if len(k) > L:
+                    L = len(k)
 
-        # Assemble formatted lines of text
-        template = '{{:{L:d}s}}: {{}}'.format(L=L+1)
-        lines_of_text = []
-        for k, v in self._status.items():
-            lines_of_text.append(template.format(k, v))
+            # Assemble formatted lines of text
+            template = '{{:{L:d}s}}: {{}}'.format(L=L+1)
+            lines_of_text = []
+            for k, v in self._status.items():
+                lines_of_text.append(template.format(k, v))
 
-        self._widget.text = lines_of_text
+            self._widget.text = lines_of_text
+        else:
+            self._widget.text = 'still waiting for data...'
 
     def update(self):
         """Update internal data and the widget display

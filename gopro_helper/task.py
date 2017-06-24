@@ -7,7 +7,7 @@ import threading
 class Task():
     """Base class for background work task
     """
-    def __init__(self, auto_start=False, interval=5):
+    def __init__(self, interval=5, auto_start=False):
         self.interval = interval
         self._flag_run = False
         self._thread = None
