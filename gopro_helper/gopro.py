@@ -33,7 +33,8 @@ class Status(Task):
         """
         time_now = time.time()
 
-        if (not status) and (time_now > self._time_stamp + self.interval or not self._status):
+        if not status and (time_now > self._time_stamp + self.interval or not self._status):
+            # Fetch new camera information
             status = commands.get_status()
 
         if status:
@@ -81,12 +82,13 @@ class Status(Task):
 
 #################################################
 
-value_empty = -1
+value_none = -1
 
-def feature_dropdown_widget(mode, fid, name=None, value_init=value_empty,
+def feature_dropdown_widget(mode, fid, name=None, value_init=value_none,
                             width='150pt', callback=None):
     """Construct a dropdown widget for specified feature options.
     Attach event handler to send new values to camera.
+    Embed optional callback function to be called for each event.
     """
     _name, options = api.feature_choices(mode, fid, include_empty=True)
 
@@ -100,7 +102,7 @@ def feature_dropdown_widget(mode, fid, name=None, value_init=value_empty,
     # Define event handler
     def handle_selection(event):
         value = event.new
-        if value != value_empty:
+        if value != value_none:
             resp = commands.set_feature_value(fid, value)
             if not resp.ok:
                 print(resp.status_code)
@@ -135,15 +137,6 @@ class Settings(Task):
     def display(self):
         if self._wid_box:
             IPython.display.display(self._wid_box)
-
-    # def set_mode_photo(self):
-    #     commands.set_mode_photo()
-    #     time.sleep(0.1)
-    #     self.update_information()
-    # def set_mode_video(self):
-    #     commands.set_mode_video()
-    #     time.sleep(0.1)
-    #     self.update_information()
 
     @property
     def mode(self):
@@ -229,50 +222,39 @@ class Settings(Task):
             self._wid_box.close()
             self._wid_box = None
 
-    #-------------------------------------------------
-
-    def task(self):
-        """Work task to run in background thread
-        """
-        delta = 0.1
-        while self._flag_run:
-            info = status.fetch_camera_info()
-
-            # text = self.status
-            text = '<br>'.join(self.status.split('\n'))
-            self.widget.value = _html_template.format(content=text)
-
-            time_0 = time.time()
-            while self._flag_run and time.time() - time_0 < self.interval:
-                time.sleep(delta)
-
-        self.widget.close()
-
-
-    def start(self):
-        self.widget = ipywidgets.HTML()
-        # self.widget.layout.width = '250pt'
-        # self.widget.layout.height = '370pt'
-        self.widget.layout.border = '1px solid grey'
-
-        IPython.display.display(self.widget)
-
-        self._flag_run = True
-
-        self._thread = threading.Thread(target=self.task)
-        self._thread.setDaemon(True)  # background thread is killed automaticalled when main thread exits.
-        self._thread.start()
-
-    def stop(self):
-        self._flag_run = False
-        self._thread.join()
-
-    @property
-    def running(self):
-        if self._thread:
-            return self._thread.is_alive()
-        else:
-            return False
+    # #-------------------------------------------------
+    # def task(self):
+    #     """Work task to run in background thread
+    #     """
+    #     delta = 0.1
+    #     while self._flag_run:
+    #         info = status.fetch_camera_info()
+    #         # text = self.status
+    #         text = '<br>'.join(self.status.split('\n'))
+    #         self.widget.value = _html_template.format(content=text)
+    #         time_0 = time.time()
+    #         while self._flag_run and time.time() - time_0 < self.interval:
+    #             time.sleep(delta)
+    #     self.widget.close()
+    # def start(self):
+    #     self.widget = ipywidgets.HTML()
+    #     # self.widget.layout.width = '250pt'
+    #     # self.widget.layout.height = '370pt'
+    #     self.widget.layout.border = '1px solid grey'
+    #     IPython.display.display(self.widget)
+    #     self._flag_run = True
+    #     self._thread = threading.Thread(target=self.task)
+    #     self._thread.setDaemon(True)  # background thread is killed automaticalled when main thread exits.
+    #     self._thread.start()
+    # def stop(self):
+    #     self._flag_run = False
+    #     self._thread.join()
+    # @property
+    # def running(self):
+    #     if self._thread:
+    #         return self._thread.is_alive()
+    #     else:
+    #         return False
 
 #------------------------------------------------
 

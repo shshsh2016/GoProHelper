@@ -87,7 +87,21 @@ _feature_id.photo.Sharpness =  25
 
 #------------------------------------------------
 # Helper functions
-def _mode_details(mode):
+def camera_modes():
+    """Return list of configured camera modes
+    """
+    exclude = ['setup', 'broadcast', 'playback']
+
+    mode_names = []
+    for info in api_details['modes']:
+        if info['path_segment'] not in exclude:
+            mode_names.append(info['path_segment'])
+
+    return mode_names
+
+
+
+def mode_features(mode):
     """Return feature details direct from camara JSON file
     """
     for info in api_details['modes']:
@@ -95,60 +109,59 @@ def _mode_details(mode):
             return info['settings']
 
 
-def video_mode_details():
-    return _mode_details('video')
 
+def feature_options(mode, name_or_id):
+    """Return options for given mode and feature (name or ID)
+    """
+    if isinstance(name_or_id, str):
+        identifier = 'path_segment'
+    else:
+        identifier = 'id'
 
-def photo_mode_details():
-    return _mode_details('photo')
+    for F in mode_features(mode):
+        if F[identifier] == name_or_id:
+            name = F['path_segment']
+            fid = F['id']
+            options = F['options']
 
+            return name, fid, options
 
-# def feature_id_mode(fid):
-#     """Determine mode to which specified feature ID belongs: 'photo' or 'video'
-#     """
-#     mode = None
-#     for m in ['photo', 'video']:
-#         for item in _mode_details(m):
-#             if item['id'] == fid:
-#                 if not mode:
-#                     mode = m
-#                 else:
-#                     raise ValueError('Found multiple entries for feature: {}'.format(fid))
-#     return mode
 
 
 def feature_id_name(mode, fid):
     """Return feature name belonging to supplied ID
     """
-    for name_k, fid_k in _feature_id[mode].items():
-        if fid == fid_k:
-            return name_k
+    name, fid, options = feature_options(mode, fid)
+    return name
+
 
 
 def feature_name_id(mode, name):
     """Return feature ID belonging to supplied name
     """
-    for name_k, fid_k in _feature_id[mode].items():
-        if name == name_k:
-            return fid_k
+    name, fid, options = feature_options(mode, name)
+    return fid
 
 
-def feature_choices(mode, fid, include_empty=False):
-    """Given mode and feature ID, return feature name and key-value pairs of available choices
-    """
-    details = _mode_details(mode)
 
-    options = Struct()
-    for item in details:
-        if item['id'] == fid:
-            feature_name = item['display_name']
-            if include_empty:
-                options['-----'] = -1
-
-            for entry in item['options']:
-                options[entry['display_name']] = entry['value']
-
-            return feature_name, options
+    # for name_k, fid_k in _feature_id[mode].items():
+    #     if fid == fid_k:
+    #         return name_k
+    # for name_k, fid_k in _feature_id[mode].items():
+    #     if name == name_k:
+    #         return fid_k
+    # def feature_choices(mode, fid, include_empty=False):
+    # """Given mode and feature ID, return feature name and key-value pairs of available choices
+    # """
+    # options = Struct()
+    # for item in mode_settings(mode):
+    #     if item['id'] == fid:
+    #         feature_name = item['display_name']
+    #         if include_empty:
+    #             options['-----'] = -1
+    #         for entry in item['options']:
+    #             options[entry['display_name']] = entry['value']
+    #         return feature_name, options
 
 #------------------------------------------------
 

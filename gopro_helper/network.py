@@ -86,6 +86,7 @@ def display_connection_details():
         devices = ""
         if conn.Devices:
             devices = " (on %s)" % ", ".join([x.Interface for x in conn.Devices])
+
         print("Active connection: %s%s" % (settings['connection']['id'], devices))
         size = max([max([len(y) for y in list(x.keys()) + ['']]) for x in settings.values()])
         format = "      %%-%ds %%s" % (size + 5)
@@ -93,7 +94,8 @@ def display_connection_details():
         for key, val in sorted(settings.items()):
             print("   %s" % key)
             for name, value in val.items():
-                print(format % (name, value))
+                if not name == 'psk':
+                    print(format % (name, value))
 
         for dev in conn.Devices:
             print("Device: %s" % dev.Interface)
@@ -202,7 +204,7 @@ def find_wifi_device():
     return found[0]
 
 
-def connect_wifi(ssid):
+def connect_wifi(ssid, check=True):
     """Connect to known WiFi access point having specified SSID
     """
     # Connection information
@@ -217,13 +219,16 @@ def connect_wifi(ssid):
     obj_path = '/'
     NM.NetworkManager.ActivateConnection(conn, device, obj_path)
 
+    if check:
+        check_state(device, timeout=60)
+
     # Done
-    return device
 
 
 
 def check_state(device, timeout=60):
-    """Continue querying network status and printing new values to console.  Return when network is ready.
+    """Continue querying network status and printing new values to console.
+    Return when network is ready.
     """
     time_delta = 0.01
     state_last = -1

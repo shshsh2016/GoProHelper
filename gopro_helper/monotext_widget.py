@@ -54,4 +54,3 @@ class MonoText(ipywidgets.HTML):
 
 if __name__ == '__main__':
     pass
-
