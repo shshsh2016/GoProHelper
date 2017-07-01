@@ -52,8 +52,6 @@ def set_feature_value(fid, value):
 def get_feature_value(fid, settings):
     """Return camera's current value for specified feature ID.
     """
-    # if not settings:
-    #     status, settings = get_raw_status_settings()
     try:
         value = settings[str(fid)]
     except KeyError:
@@ -61,107 +59,41 @@ def get_feature_value(fid, settings):
 
     return value
 
+#------------------------------------------------
+
+
+def _keys_str_to_int(D):
+    """Status and settings information as returned from camera  uses numbers in string
+    form as 'keys'.  I don't like that. Convert strings to integers.
+    """
+    keys = list(D.keys())
+    for k in keys:
+        if isinstance(k, str):
+            v = D.pop(k)
+            D[int(k)] = v
+
+    return D
 
 def get_raw_status_settings():
-    """Fetch current status and settings from camera
+    """Fetch current raw status and settings from camera
     """
     content = get(api.url_status)
 
     if not content:
         return None, None
 
-    status = Struct(content['status'])
-    settings = Struct(content['settings'])
+    raw_status = Struct(content['status'])
+    raw_settings = Struct(content['settings'])
 
-    return status, settings
+    raw_status = _keys_str_to_int(raw_status)
+    raw_settings = _keys_str_to_int(raw_settings)
 
+    # Process to prettier text names instead of number IDs
+    # info_status = api.parse_status(raw_status)
 
-def get_status():
-    """Fetch basic camera status values
-    """
-    raw_status, raw_settings = get_raw_status_settings()
-    if not raw_status:
-        return
-
-    # Parse status and settings details
-    # known groups:  ['system', 'storage', 'app', 'wireless', 'broadcast', 'fwupdate', 'liveview', 'setup', 'stream']
-    groups_include = ['system', 'storage', 'app', 'setup']
-
-    fields_include = [ \
-                      'current_time_msec',
-                      'mode',
-                      'sub_mode',
-                      'encoding_active',
-                      'system_busy',
-                      'system_hot',
-                      'battery_level',  # name change
-                      'internal_battery_percentage',
-                      'gps_status',
-                      'remaining_photos',
-                      'remaining_video_time',
-                      'num_total_photos',
-                      'num_total_videos',
-                      'remaining_space',
-                      'sd_status',
-                      ]
-                      # 'internal_battery_level',
-                      # 'video_selected_flatmode',
-                      # 'photo_selected_flatmode',
-                      # 'timelapse_selected_flatmode',
-                      # 'date_time']
-
-    info = {}
-    for group in api.api_details['status']['groups']:
-        # Check for group name in set of to-be-extracted details
-        group_name = group['group'].lower()
-        if group_name in groups_include:
-            for entry in group['fields']:
-                if entry['name'] in fields_include:
-                    # Find corresponding entry and value in camera settings output
-                    try:
-                        value = raw_status[    entry['id'] ]
-                    except KeyError:
-                        value = raw_status[str(entry['id'])]
-
-                    info[entry['name']] = value
-
-    name_changes = [['internal_battery_percentage', 'battery_level']]
-
-    for old, new in name_changes:
-        value = info.pop(old)
-        info[new] = value
-
-    # Move into OrderedDict-based namespace structure
-    info_sorted = Struct()
-    for k in fields_include:
-        if k in info:
-            info_sorted[k] = info[k]
-
-    # Done
-    return info_sorted
+    return raw_status, raw_settings
 
 
-def _find_item_name_by_value(parts, name, value):
-    for item in parts:
-        if item[name] == value:
-            return item
-
-    raise ValueError('item not found: {}'.format(value))
-
-
-def parse_mode_submode(info_status):
-    """Helper function to translate mode/submode numerc value to pretty string values
-    """
-    info_mode = _find_item_name_by_value(api.api_details['modes'], 'value', info_status.mode)
-
-    info_submode = _find_item_name_by_value(info_mode['settings'], 'path_segment', 'current_sub_mode')
-
-    info_current = _find_item_name_by_value(info_submode['options'], 'value', info_status.sub_mode)
-
-    name_mode = info_mode['display_name']
-    name_sub_mode = info_current['display_name']
-
-    return name_mode, name_sub_mode
 
 #------------------------------------------------
 

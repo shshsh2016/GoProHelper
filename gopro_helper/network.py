@@ -201,6 +201,9 @@ def find_wifi_device():
     if len(found) > 1:
         raise ValueError('Found multiple devices...')
 
+    if len(found) == 0:
+        raise ValueError('Found no devices...')
+
     return found[0]
 
 
@@ -252,7 +255,7 @@ def check_state(device, timeout=60):
                 print(msg)
 
                 if state_str == 'activated':
-                    print('ok: {}'.format(current_connection()))
+                    print('connected: {}'.format(current_connection()))
 
                     return
 

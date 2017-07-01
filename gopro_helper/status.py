@@ -8,48 +8,48 @@ from .network import get
 from .namespace import Struct
 
 
-def current_mode(info=None):
-    """Determine current mode from supplied information.  Return either 'photo' or 'video'.
-    This function is way more complicated than necesarry.
-    """
-    if not info:
-        status, settings = commands.get_raw_status_settings()
-        info = status
+# def current_mode(info=None):
+#     """Determine current mode from supplied information.  Return either 'photo' or 'video'.
+#     This function is way more complicated than necesarry.
+#     """
+#     if not info:
+#         status, settings = commands.get_raw_status_settings()
+#         info = status
 
-    value = None
-    if isinstance(info, Struct):
-        try:
-            status_mode_id = '43'
-            value = info[status_mode_id]
-        except KeyError:
-            try:
-                value = info.mode
-            except AttributeError:
-                try:
-                    value = info.system.mode
-                except AttributeError:
-                    raise ValueError('unexpected data: {}'.format(info))
-    elif isinstance(info, str) or isinstance(info, int):
-        value = info
+#     value = None
+#     if isinstance(info, Struct):
+#         try:
+#             status_mode_id = '43'
+#             value = info[status_mode_id]
+#         except KeyError:
+#             try:
+#                 value = info.mode
+#             except AttributeError:
+#                 try:
+#                     value = info.system.mode
+#                 except AttributeError:
+#                     raise ValueError('unexpected data: {}'.format(info))
+#     elif isinstance(info, str) or isinstance(info, int):
+#         value = info
 
-    if value is not None:
-        if isinstance(value, str):
-            value = value.lower()
-            if value == 'video':
-                return 'video'
-            elif value == 'photo':
-                return 'photo'
-            else:
-                raise ValueError('unexpected mode string value: {}'.format(value))
-        elif type(value) == int:
-            if value == api._VIDEO_MODE:
-                return 'video'
-            elif value == api._PHOTO_MODE:
-                return 'photo'
-            else:
-                raise ValueError('unexpected mode integer value: {}'.format(value))
+#     if value is not None:
+#         if isinstance(value, str):
+#             value = value.lower()
+#             if value == 'video':
+#                 return 'video'
+#             elif value == 'photo':
+#                 return 'photo'
+#             else:
+#                 raise ValueError('unexpected mode string value: {}'.format(value))
+#         elif type(value) == int:
+#             if value == api._VIDEO_MODE:
+#                 return 'video'
+#             elif value == api._PHOTO_MODE:
+#                 return 'photo'
+#             else:
+#                 raise ValueError('unexpected mode integer value: {}'.format(value))
 
-    raise ValueError('unexpected data: {}, {}'.format(info, value))
+#     raise ValueError('unexpected data: {}, {}'.format(info, value))
 
 
 

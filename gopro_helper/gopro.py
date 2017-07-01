@@ -13,72 +13,144 @@ from .monotext_widget import MonoText
 from .task import Task
 
 
-class Status(Task):
-    """Monitor camera status
+class MetadataTask(Task):
+    """Task subclass for managing camera metadata
     """
-    def __init__(self, interval=1, auto_start=False):
-        self._widget = None
-        self._status = None
-        self._time_stamp = 0
-
-        super().__init__(interval=interval, auto_start=auto_start)
+    _raw_settings = None
+    _raw_status = None
+    _info_status = None
+    _time_stamp = 0
 
     def initialize(self):
-        self._widget = MonoText()
-        IPython.display.display(self._widget)
-        self._widget.text = 'waiting for data...'
+        super().initialize()
 
-    def _update_data(self, status=None):
-        """Update internal state information, being aware that external entities may have
-        already provided fresh data.
+        # Fetch some fresh camera data right now
+        raw_status_settings = commands.get_raw_status_settings()
+        self._update_data(raw_status_settings)
+
+    @property
+    def stale(self):
+        """True if currently-stored data is stale
         """
-        time_now = time.time()
+        return self._time_stamp + self.interval < time.time()
 
-        if not status and (time_now > self._time_stamp + self.interval or not self._status):
-            # Fetch new camera information
-            status = commands.get_status()
+    @property
+    def have_data(self):
+        """Return True if internal data is available
+        """
+        if self._raw_settings and self._raw_status and self._info_status:
+            return True
+        else:
+            return False
 
-        if status:
-            name_mode, name_sub_mode = commands.parse_mode_submode(status)
-            status.mode = name_mode
-            status.sub_mode = name_sub_mode
+    def _update_data(self, raw_status_settings):
+        """Perform the work of updating internal data
+        """
+        raw_status, raw_settings = raw_status_settings
 
-            self._time_stamp = time_now
-            self._status = status
+        if not raw_status:
+            raise ValueError('Unexpected value for raw_status: {}'.format(raw_status))
 
-    def _update_display(self):
+        print('update data')
+
+        # Processes status subset
+        info_status_full = api.parse_status_names(raw_status)
+
+        info_status = Struct()
+        for k in api._status_fields:
+            info_status[k] = info_status_full[k]
+
+        # Pretty mode/submode names instead of integers
+        name_mode, name_sub_mode = api.parse_mode_sub_mode(info_status)
+        info_status.mode = name_mode
+        info_status.sub_mode = name_sub_mode
+
+        # Incorporate new metadata
+        # with self.lock:
+        self._raw_settings = raw_settings
+        self._raw_status = raw_status
+        self._info_status = info_status
+
+        self._time_stamp = time.time()
+
+    def update(self, raw_status_settings=None):
+        """Update internal state information
+        """
+        super().update()
+
+        if not raw_status_settings and not self.stale:
+            # No new data, old data still fresh
+            return
+
+        # Fetch new camera information, update self
+        raw_status_settings = commands.get_raw_status_settings()
+        self._update_data(raw_status_settings)
+
+    def finish(self):
+        """Clear out the data
+        """
+        super().finish()
+
+        self._raw_status = None
+        self._raw_settings = None
+        self._info_status = None
+
+#------------------------------------------------
+
+
+class Status(MetadataTask):
+    """Monitor camera status
+    """
+    _widget = None
+
+    def __init__(self, auto_start=True, *args, **kwargs):
+        super().__init__(auto_start=auto_start, *args, **kwargs)
+
+    def initialize(self):
+        super().initialize()
+
+        self._widget = MonoText()
+        self._widget.text = 'waiting for data...'
+        self.display()
+
+    def display(self):
+        if self._widget:
+            IPython.display.display(self._widget)
+
+    def update(self, raw_status_settings=None):
+        """Update internal data and displayed widgets
+        """
+        super().update(raw_status_settings=raw_status_settings)
+        self._update_widgets()
+
+    def _update_widgets(self):
         """Update display widget with new text information
         """
-        if self._status:
+        if self.have_data:
             # Maximum label width
             L = 0
-            for k in self._status.keys():
+            for k in self._info_status.keys():
                 if len(k) > L:
                     L = len(k)
 
             # Assemble formatted lines of text
             template = '{{:{L:d}s}}: {{}}'.format(L=L+1)
             lines_of_text = []
-            for k, v in self._status.items():
+            for k, v in self._info_status.items():
                 lines_of_text.append(template.format(k, v))
 
             self._widget.text = lines_of_text
         else:
-            self._widget.text = 'still waiting for data...'
-
-    def update(self):
-        """Update internal data and the widget display
-        """
-        self._update_data()
-        self._update_display()
-
-    def external_update(self, status):
-        if self._widget:
-            with self.lock:
-                self._update_data(status=status)
-                self._update_display()
+            if 'still' in self._widget.text:
+                self._widget.text = 'waiting for data...'
+            else:
+                self._widget.text = '...still waiting for data'
 
     def finish(self):
+        """Shut down the widgets
+        """
+        super().finish()
+
         if self._widget:
             self._widget.close()
             self._widget = None
@@ -86,128 +158,112 @@ class Status(Task):
 
 #################################################
 
-value_none = -1
 
-def feature_dropdown_widget(mode, fid, name=None, value_init=value_none,
-                            width='150pt', callback=None):
+def feature_dropdown_widget(mode, f_name, width='150pt', callback=None):
     """Construct a dropdown widget for specified feature options.
-    Attach event handler to send new values to camera.
+    Attach event handler to deliver new values to camera.
     Embed optional callback function to be called for each event.
     """
-    _name, options = api.feature_choices(mode, fid, include_empty=True)
-
-    if not name:
-        name = _name
+    f_name, fid, options = api.feature_options(mode, f_name)
+    options_data = [(x['display_name'], x['value']) for x in options]
 
     # Instantiate new dropdown widget
-    wid = ipywidgets.Dropdown(value=value_init, options=options, description=name)
+    d_name = api.feature_display_name(mode, f_name)
+    wid = ipywidgets.Dropdown(options=options_data, description=d_name)
     wid.layout.width = width
 
     # Define event handler
-    def handle_selection(event):
+    def _handle_selection(event):
+        print(event)
         value = event.new
-        if value != value_none:
-            resp = commands.set_feature_value(fid, value)
-            if not resp.ok:
-                print(resp.status_code)
+
+        print('set feature value: {}, {}'.format(fid, value))
+
+        resp = commands.set_feature_value(fid, value)
+        if not resp.ok:
+            # raise exception instead??
+            print(resp.status_code)
 
         if callback:
             callback()
 
     # Attach event handler to widget
-    wid.observe(handle_selection, names='value')
+    wid.observe(_handle_selection, names='value')
 
     return wid
 
 
 
-class Settings(Task):
-    """Monitor and manage camera settings
+class Settings(MetadataTask):
+    """Manage camera settings
     """
-    def __init__(self, auto_start=False, interval=1):
-        self.interval = interval
-        self._thread = None
-        self._flag_run = False
-        self._mode = None
-        self._status = None
-        self._settings = None
-        self._widgets = None
-        self._wid_box = None
+    _widgets = None
+    _wid_box = None
+    _mode = None
 
-        if auto_start:
-            self.initialize()
-            # self.start()
+    def __init__(self, auto_start=True, *args, **kwargs):
+        super().__init__(auto_start=auto_start, *args, **kwargs)
+
+    def initialize(self):
+        super().initialize()
+
+        self._update_mode()
+        self._generate_widgets()
+        self.display()
 
     def display(self):
         if self._wid_box:
             IPython.display.display(self._wid_box)
 
-    @property
-    def mode(self):
-        return self._mode
-
-    def _update_mode(self, value):
-        valid_modes = ['photo', 'video']
-
-        value = status.current_mode(value)
-
-        if value not in valid_modes:
-            raise ValueError('Unexpected mode value: {}'.format(value))
-
-        if value != self._mode:
-            self._mode = value
-            self.regenerate_widgets()
-            self.update_widgets()
-
-    def initialize(self):
-        """Start everything in motion.  Call this in the beginning.
+    def update(self, raw_status_settings=None):
+        """Update internal data and displayed widgets
         """
-        self.close()
-        self.update_information()
-        # self.initialize_widgets()
-        self.display()
-        # self.update_widgets()
+        # with self.lock:
+        super().update(raw_status_settings=raw_status_settings)
+        self._update_mode()
+        self._update_widgets()
 
-    def regenerate_widgets(self):
+    def _update_mode(self):
+        """Update camera mode, reset widgets if mode has changed
+        """
+        new_mode = self._info_status.mode   # old mode still contained here
+
+        if new_mode not in api.features:
+            raise ValueError('Unexpected mode value: {}'.format(new_mode))
+
+        if new_mode != self._mode:
+            self._mode = new_mode
+            self._generate_widgets()
+            # self._update_widgets()
+
+    def _generate_widgets(self):
         """Generate and display a set of dropdown widgets to control current mode options
         """
-        self.close_children()
+        self._close_widgets()  # dropdown widgets only, not the container box widget
 
-        self._widgets = Struct()
-        for name, fid in api._feature_id[self.mode].items():
-            self._widgets[name] = feature_dropdown_widget(self.mode, fid, name=name,
-                                                          callback=self.update)
-
-        # Place control widgets in a vertical layout box
+        # Vertical layout box to contain the dropdown widgets
         if not self._wid_box:
             self._wid_box = ipywidgets.VBox()
 
-        self._wid_box.children = [w for w in self._widgets.values()]
+        # Make new widgets
+        self._widgets = Struct()
+        for f_name in api.features[self._mode]:
+            wid = feature_dropdown_widget(self._mode, f_name, callback=self.update)
 
-    def update(self):
-        self.update_information()
-        self.update_widgets()
+            self._widgets[f_name] = wid
 
-    def update_widgets(self):
+        self._wid_box.children = [wid for wid in self._widgets.values()]
+
+    def _update_widgets(self):
         """Update displayed widgets with current camera settings
         """
-        for name, wid in self._widgets.items():
-            fid = api.feature_name_id(self.mode, name)
-            value = self._settings[str(fid)]
-            wid.value = value
+        for f_name, wid in self._widgets.items():
+            fid = api.feature_name_id(self._mode, f_name)
+            value_int = self._raw_settings[fid]
+            wid.value = value_int
 
-    def update_information(self):
-        """Update internal state with information retrieved from camera
-        """
-        raw_status, raw_settings = commands.get_raw_status_settings()
-        # self._status = raw_status
-        self._settings = raw_settings
-
-        self._update_mode(raw_status)
-        # self._update_mode(status.current_mode(raw_status))
-
-    def close_children(self):
-        """Close only child widgets inside container box.
+    def _close_widgets(self):
+        """Close dropdown widgets inside container box widget
         """
         if self._widgets:
             for wid in self._widgets.values():
@@ -217,48 +273,16 @@ class Settings(Task):
         if self._wid_box:
             self._wid_box.children = []
 
-    def close(self):
-        """Close and remove all widgets.
+    def finish(self):
+        """Close and remove all widgets
         """
-        self.close_children()
+        self._close_widgets()
 
         if self._wid_box:
             self._wid_box.close()
             self._wid_box = None
 
-    # #-------------------------------------------------
-    # def task(self):
-    #     """Work task to run in background thread
-    #     """
-    #     delta = 0.1
-    #     while self._flag_run:
-    #         info = status.fetch_camera_info()
-    #         # text = self.status
-    #         text = '<br>'.join(self.status.split('\n'))
-    #         self.widget.value = _html_template.format(content=text)
-    #         time_0 = time.time()
-    #         while self._flag_run and time.time() - time_0 < self.interval:
-    #             time.sleep(delta)
-    #     self.widget.close()
-    # def start(self):
-    #     self.widget = ipywidgets.HTML()
-    #     # self.widget.layout.width = '250pt'
-    #     # self.widget.layout.height = '370pt'
-    #     self.widget.layout.border = '1px solid grey'
-    #     IPython.display.display(self.widget)
-    #     self._flag_run = True
-    #     self._thread = threading.Thread(target=self.task)
-    #     self._thread.setDaemon(True)  # background thread is killed automaticalled when main thread exits.
-    #     self._thread.start()
-    # def stop(self):
-    #     self._flag_run = False
-    #     self._thread.join()
-    # @property
-    # def running(self):
-    #     if self._thread:
-    #         return self._thread.is_alive()
-    #     else:
-    #         return False
+
 
 #------------------------------------------------
 

@@ -50,39 +50,113 @@ url_mode_photo = tpl_mode.format(mode=_PHOTO_MODE)
 url_sub_mode_photo_photo = tpl_sub_mode.format(mode=_PHOTO_MODE, sub=0)
 url_sub_mode_photo_night = tpl_sub_mode.format(mode=_PHOTO_MODE, sub=2)
 
+#################################################
+# Status and settings useful subsets
+_status_fields = ['current_time_msec',
+                  'mode',
+                  'sub_mode',
+                  'encoding_active',
+                  'system_busy',
+                  'system_hot',
+                  # 'battery_level',
+                  'battery_present',
+                  'battery_percentage',
+                  'gps_status',
+                  'num_total_photos',
+                  'num_total_videos',
+                  'remaining_photos',
+                  'remaining_video_time',
+                  'remaining_space',
+                  'sd_status']
+
 
 #----------------------------------------
-# Camera feature IDs
-_feature_id = Struct()
+# Useful mode / feature IDs
+# Restricted to subset of mode/submode combinations useful for my projects
+# Assume Protune is always enabled.
+_video_features = [ \
+                   'fov',
+                   'resolution',
+                   'fps',
+                   'exposure_time',
+                   'eis',
+                   'protune_iso_mode',
+                   'protune_iso',
+                   'protune_ev',
+                   'low_light',
+                   # 'protune',
+                   'protune_white_balance',
+                   'protune_color',
+                   'protune_sharpness',
+                 ]
 
-_feature_id.video = Struct()
-_feature_id.video.FOV =         4
-_feature_id.video.Resolution =  2
-_feature_id.video.FPS =         3
-_feature_id.video.Shutter =    73
-_feature_id.video.Stab =       78
-_feature_id.video.ISO_mode =   74
-_feature_id.video.ISO =        13
-_feature_id.video.EV =         15
-_feature_id.video.Low_light =   8
-_feature_id.video.Protune =    10
-_feature_id.video.White =      11
-_feature_id.video.Color =      12
-_feature_id.video.Sharpness =  14
+_photo_features = [ \
+                   'resolution',
+                   # 'exposure_time',
+                   'protune_exposure_time',
+                   'protune_ev',
+                   'protune_iso',
+                   'protune_iso_min',
+                   # 'protune',
+                   'single_wdr',
+                   'protune_white_balance',
+                   'protune_color',
+                   'single_raw',
+                   'night_raw',
+                   'protune_sharpness',
+                  ]
 
-_feature_id.photo = Struct()
-_feature_id.photo.Resolution = 17
-_feature_id.photo.Shutter =    97
-_feature_id.photo.EV =         26
-_feature_id.photo.ISO_max =    24
-_feature_id.photo.ISO_min =    75
-_feature_id.photo.Protune =    21
-_feature_id.photo.WDR =        77
-_feature_id.photo.White =      22
-_feature_id.photo.Color =      23
-_feature_id.photo.RAW =        82
-_feature_id.photo.Sharpness =  25
+_multi_shot_features = [ \
+                        'timelapse_rate',
+                        'resolution',
+                        'exposure_time',
+                        # 'burst_rate',
+                        # 'nightlapse_rate',
+                        'spot_meter',
+                        # 'protune',
+                        'protune_white_balance',
+                        'protune_color',
+                        'protune_sharpness',
+                        'protune_ev',
+                        'protune_iso_min',
+                        'protune_iso',
+                        'timelapse_wdr',
+                        'timelapse_raw',
+                        # 'nightlapse_raw',
+                       ]
 
+features = Struct()
+features.video = _video_features
+features.photo = _photo_features
+features.multi_shot = _multi_shot_features
+
+# _feature_id = Struct()
+# _feature_id.video = Struct()
+# _feature_id.video.FOV =         4
+# _feature_id.video.Resolution =  2
+# _feature_id.video.FPS =         3
+# _feature_id.video.Shutter =    73
+# _feature_id.video.Stab =       78
+# _feature_id.video.ISO_mode =   74
+# _feature_id.video.ISO =        13
+# _feature_id.video.EV =         15
+# _feature_id.video.Low_light =   8
+# _feature_id.video.Protune =    10
+# _feature_id.video.White =      11
+# _feature_id.video.Color =      12
+# _feature_id.video.Sharpness =  14
+# _feature_id.photo = Struct()
+# _feature_id.photo.Resolution = 17
+# _feature_id.photo.Shutter =    97
+# _feature_id.photo.EV =         26
+# _feature_id.photo.ISO_max =    24
+# _feature_id.photo.ISO_min =    75
+# _feature_id.photo.Protune =    21
+# _feature_id.photo.WDR =        77
+# _feature_id.photo.White =      22
+# _feature_id.photo.Color =      23
+# _feature_id.photo.RAW =        82
+# _feature_id.photo.Sharpness =  25
 #  19 ? shutter time??
 
 #------------------------------------------------
@@ -90,7 +164,7 @@ _feature_id.photo.Sharpness =  25
 def camera_modes():
     """Return list of configured camera modes
     """
-    exclude = ['setup', 'broadcast', 'playback']
+    exclude = ['broadcast', 'playback']
 
     mode_names = []
     for info in api_details['modes']:
@@ -109,7 +183,6 @@ def mode_features(mode):
             return info['settings']
 
 
-
 def feature_options(mode, name_or_id):
     """Return options for given mode and feature (name or ID)
     """
@@ -121,10 +194,27 @@ def feature_options(mode, name_or_id):
     for F in mode_features(mode):
         if F[identifier] == name_or_id:
             name = F['path_segment']
+            # name = F['display_name']
             fid = F['id']
             options = F['options']
 
             return name, fid, options
+
+    raise ValueError('Invalid mode/feature combination: "{}", "{}"'.format(mode, name_or_id))
+
+
+
+def feature_display_name(mode, name_or_id):
+    """Return pretty display name for supplied feature ID or path_segment ugly name
+    """
+    if isinstance(name_or_id, str):
+        identifier = 'path_segment'
+    else:
+        identifier = 'id'
+
+    for F in mode_features(mode):
+        if F[identifier] == name_or_id:
+            return F['display_name']
 
 
 
@@ -142,26 +232,75 @@ def feature_name_id(mode, name):
     name, fid, options = feature_options(mode, name)
     return fid
 
+#------------------------------------------------
+
+def parse_status_names(raw_status):
+    """Parse raw status values into structure with nice field nmames
+    """
+    # Parse status and settings details
+    # known groups:  ['system', 'storage', 'app', 'wireless', 'broadcast',
+    #                 'fwupdate', 'liveview', 'setup', 'stream']
+    groups_include = ['system', 'storage', 'app', 'setup']
 
 
-    # for name_k, fid_k in _feature_id[mode].items():
-    #     if fid == fid_k:
-    #         return name_k
-    # for name_k, fid_k in _feature_id[mode].items():
-    #     if name == name_k:
-    #         return fid_k
-    # def feature_choices(mode, fid, include_empty=False):
-    # """Given mode and feature ID, return feature name and key-value pairs of available choices
-    # """
-    # options = Struct()
-    # for item in mode_settings(mode):
-    #     if item['id'] == fid:
-    #         feature_name = item['display_name']
-    #         if include_empty:
-    #             options['-----'] = -1
-    #         for entry in item['options']:
-    #             options[entry['display_name']] = entry['value']
-    #         return feature_name, options
+    info = Struct()
+    for group in api_details['status']['groups']:
+        # Check for group name in set of to-be-extracted details
+        group_name = group['group'].lower()
+        if group_name in groups_include:
+            for entry in group['fields']:
+                # if entry['name'] in fields_include:
+                    # Find corresponding entry and value in camera settings output
+                try:
+                    value = raw_status[    entry['id'] ]
+                except KeyError:
+                    value = raw_status[str(entry['id'])]
+
+                info[entry['name']] = value
+
+
+    # Prettier names
+    name_changes = [['internal_battery_percentage', 'battery_percentage'],
+                    ['internal_battery_present', 'battery_present'],
+                    ['internal_battery_level', 'battery_level'],
+                    # ['external_battery_present', ''],
+                    # ['external_battery_level', '']
+                    ]
+
+    for old, new in name_changes:
+        value = info.pop(old)
+        info[new] = value
+
+    # Done
+    return info
+
+#######
+
+def _find_item_name_by_value(parts, name, value):
+    """Return item whose field with name has given value
+    """
+    for item in parts:
+        if item[name] == value:
+            return item
+
+    raise ValueError('item not found: {}'.format(value))
+
+
+
+def parse_mode_sub_mode(info_status):
+    """Helper function to translate mode/submode numeric value to pretty string values
+    """
+    info_mode = _find_item_name_by_value(api_details['modes'], 'value', info_status.mode)
+
+    info_sub_mode = _find_item_name_by_value(info_mode['settings'], 'path_segment', 'current_sub_mode')
+
+    info_current = _find_item_name_by_value(info_sub_mode['options'], 'value', info_status.sub_mode)
+
+    name_mode = info_mode['path_segment']
+    name_sub_mode = info_current['display_name']
+
+    return name_mode, name_sub_mode
+
 
 #------------------------------------------------
 
