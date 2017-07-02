@@ -19,9 +19,8 @@ class Task():
     #--------------------------------------------
 
     def initialize(self):
-        """Child classes need to define this method.
-        Override this method to suite your needs:
-        - Load config data from files
+        """Child classes need to override this method:
+        - load config data from files
         - instantiate a widget
         - establish a network connection
         - etc
@@ -29,8 +28,7 @@ class Task():
         pass
 
     def update(self):
-        """Child classes need to override this method to get their work done.
-        Override this method to suite your needs:
+        """Child classes need to override this method to get their work done:
         - fetch new data
         - compute something
         - make some LEDs blink
@@ -39,9 +37,8 @@ class Task():
         pass
 
     def finish(self):
-        """This method is called automatically by the close method as part of shutting down
-        background thread.  Override this in order to do clean up work.
-        Override this method to suite your needs:
+        """This method is called automatically by the stop method as part of shutting down
+        background thread.  Override this in order to do clean up work:
         - write data to files
         - close a widget
         - close a socket

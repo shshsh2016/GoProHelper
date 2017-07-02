@@ -1,10 +1,13 @@
 beautifulsoup4
-jupyter
 ipywidgets
 IPython
-python-NetworkManager
+jupyter
+lxml
+matplotlib
 notebook
 numpy
 pillow
+pyexiftool
+python-NetworkManager
 requests
 simplejson

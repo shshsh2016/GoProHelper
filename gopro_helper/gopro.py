@@ -49,24 +49,26 @@ class MetadataTask(Task):
         raw_status, raw_settings = raw_status_settings
 
         if not raw_status:
-            raise ValueError('Unexpected value for raw_status: {}'.format(raw_status))
+            self._raw_settings = None
+            self._raw_status = None
+            self._info_status = None
 
-        print('update data')
+            return
+            # raise ValueError('Unexpected value for raw_status: {}'.format(raw_status))
 
-        # Processes status subset
+        # Process status subset
         info_status_full = api.parse_status_names(raw_status)
 
         info_status = Struct()
         for k in api._status_fields:
             info_status[k] = info_status_full[k]
 
-        # Pretty mode/submode names instead of integers
+        # Pretty mode/sub-mode names instead of integers
         name_mode, name_sub_mode = api.parse_mode_sub_mode(info_status)
         info_status.mode = name_mode
         info_status.sub_mode = name_sub_mode
 
         # Incorporate new metadata
-        # with self.lock:
         self._raw_settings = raw_settings
         self._raw_status = raw_status
         self._info_status = info_status
@@ -83,11 +85,12 @@ class MetadataTask(Task):
             return
 
         # Fetch new camera information, update self
-        raw_status_settings = commands.get_raw_status_settings()
+        if not raw_status_settings:
+            raw_status_settings = commands.get_raw_status_settings()
         self._update_data(raw_status_settings)
 
     def finish(self):
-        """Clear out the data
+        """Clear out the data, prepare to shut down.
         """
         super().finish()
 
@@ -121,9 +124,9 @@ class Status(MetadataTask):
         """Update internal data and displayed widgets
         """
         super().update(raw_status_settings=raw_status_settings)
-        self._update_widgets()
+        self._update_widget()
 
-    def _update_widgets(self):
+    def _update_widget(self):
         """Update display widget with new text information
         """
         if self.have_data:
@@ -134,11 +137,12 @@ class Status(MetadataTask):
                     L = len(k)
 
             # Assemble formatted lines of text
-            template = '{{:{L:d}s}}: {{}}'.format(L=L+1)
+            tpl = '{{:{L:d}s}}: {{}}'.format(L=L+1)
             lines_of_text = []
             for k, v in self._info_status.items():
-                lines_of_text.append(template.format(k, v))
+                lines_of_text.append(tpl.format(k, v))
 
+            # Push text to the widget
             self._widget.text = lines_of_text
         else:
             if 'still' in self._widget.text:
@@ -159,7 +163,7 @@ class Status(MetadataTask):
 #################################################
 
 
-def feature_dropdown_widget(mode, f_name, width='150pt', callback=None):
+def feature_dropdown_widget(mode, f_name, width='160pt', callback=None):
     """Construct a dropdown widget for specified feature options.
     Attach event handler to deliver new values to camera.
     Embed optional callback function to be called for each event.
@@ -174,18 +178,18 @@ def feature_dropdown_widget(mode, f_name, width='150pt', callback=None):
 
     # Define event handler
     def _handle_selection(event):
-        print(event)
-        value = event.new
+        if event.type == 'change':
+            value = event.new
 
-        print('set feature value: {}, {}'.format(fid, value))
+            resp = commands.set_feature_value(fid, value)
 
-        resp = commands.set_feature_value(fid, value)
-        if not resp.ok:
-            # raise exception instead??
-            print(resp.status_code)
+            if resp.ok and callback:
+                callback()
 
-        if callback:
-            callback()
+            if not resp.ok:
+                # raise exception instead??
+                print(resp.status_code)
+
 
     # Attach event handler to widget
     wid.observe(_handle_selection, names='value')
@@ -218,26 +222,36 @@ class Settings(MetadataTask):
     def update(self, raw_status_settings=None):
         """Update internal data and displayed widgets
         """
-        # with self.lock:
         super().update(raw_status_settings=raw_status_settings)
-        self._update_mode()
+        changed = self._update_mode()
+        if changed:
+            self._generate_widgets()
         self._update_widgets()
 
+    def callback_update(self):
+        raw_status_settings = commands.get_raw_status_settings()
+        self.update(raw_status_settings)
+
     def _update_mode(self):
-        """Update camera mode, reset widgets if mode has changed
+        """Update camera mode, return True if mode has changed
         """
-        new_mode = self._info_status.mode   # old mode still contained here
+        new_mode = self._info_status.mode   # if new mode this value will be different from self._mode
 
         if new_mode not in api.features:
             raise ValueError('Unexpected mode value: {}'.format(new_mode))
 
         if new_mode != self._mode:
             self._mode = new_mode
-            self._generate_widgets()
+            changed = True
+            # self._generate_widgets()
             # self._update_widgets()
+        else:
+            changed = False
+
+        return changed
 
     def _generate_widgets(self):
-        """Generate and display a set of dropdown widgets to control current mode options
+        """Generate/regenerate dropdown widgets to control camera mode options
         """
         self._close_widgets()  # dropdown widgets only, not the container box widget
 
@@ -248,7 +262,7 @@ class Settings(MetadataTask):
         # Make new widgets
         self._widgets = Struct()
         for f_name in api.features[self._mode]:
-            wid = feature_dropdown_widget(self._mode, f_name, callback=self.update)
+            wid = feature_dropdown_widget(self._mode, f_name, callback=self.callback_update)
 
             self._widgets[f_name] = wid
 
@@ -259,8 +273,9 @@ class Settings(MetadataTask):
         """
         for f_name, wid in self._widgets.items():
             fid = api.feature_name_id(self._mode, f_name)
-            value_int = self._raw_settings[fid]
-            wid.value = value_int
+            value_new = self._raw_settings[fid]
+            if wid.value != value_new:
+                wid.value = value_new
 
     def _close_widgets(self):
         """Close dropdown widgets inside container box widget

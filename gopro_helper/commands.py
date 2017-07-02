@@ -31,6 +31,13 @@ def set_mode_video():
     resp = get(api.url_sub_mode_video_video)
 
 
+def set_mode_timelapse():
+    resp = get(api.url_mode_multi_shot)
+    time.sleep(0.05)
+
+    resp = get(api.url_sub_mode_timelapse_photo)
+
+
 #------------------------------------------------
 # Shutter control
 def shutter_capture():

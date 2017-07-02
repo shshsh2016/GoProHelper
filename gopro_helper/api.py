@@ -50,6 +50,9 @@ url_mode_photo = tpl_mode.format(mode=_PHOTO_MODE)
 url_sub_mode_photo_photo = tpl_sub_mode.format(mode=_PHOTO_MODE, sub=0)
 url_sub_mode_photo_night = tpl_sub_mode.format(mode=_PHOTO_MODE, sub=2)
 
+url_mode_multi_shot = tpl_mode.format(mode=_MULTI_MODE)
+url_sub_mode_timelapse_photo = tpl_sub_mode.format(mode=_MULTI_MODE, sub=1)
+
 #################################################
 # Status and settings useful subsets
 _status_fields = ['current_time_msec',
@@ -75,6 +78,7 @@ _status_fields = ['current_time_msec',
 # Restricted to subset of mode/submode combinations useful for my projects
 # Assume Protune is always enabled.
 _video_features = [ \
+                   # 'current_sub_mode',
                    'fov',
                    'resolution',
                    'fps',
@@ -85,6 +89,7 @@ _video_features = [ \
                    'protune_ev',
                    'low_light',
                    # 'protune',
+                   'timelapse_rate',
                    'protune_white_balance',
                    'protune_color',
                    'protune_sharpness',
@@ -181,6 +186,7 @@ def mode_features(mode):
     for info in api_details['modes']:
         if info['path_segment'] == mode:
             return info['settings']
+
 
 
 def feature_options(mode, name_or_id):

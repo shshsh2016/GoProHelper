@@ -2,6 +2,8 @@
 import os
 
 import bs4
+import exiftool
+import matplotlib.pyplot as pyplot
 
 import data_io
 from progress_bar import bar
@@ -91,19 +93,20 @@ def delete_file(url_file):
 
 
 def local_data(path_save='./data'):
-    """Return list of locally-stored data files
+    """Return list of locally-stored data files (full path)
     """
     files = data_io.find(path_save, ['*.JPG', '*.jpg', '*.MP4', '*.mp4'])
-    names = [os.path.basename(f) for f in files]
 
-    return names
+    return files
 
 
 
 def update_local_data(path_save='./data', delete=True, show_bar=False):
     """Move any new photos or videos from camera to local storage
     """
-    local_names = local_data(path_save)
+    local_files = local_data(path_save)
+    local_names = [os.path.basename(f) for f in local_files]
+
     data_urls = get_data_urls()
 
     if show_bar:
@@ -120,6 +123,49 @@ def update_local_data(path_save='./data', delete=True, show_bar=False):
         if delete:
             delete_file(url)
 
+
+def metadata(fname, full=False):
+    """Load metadata from image file
+    """
+
+    with exiftool.ExifTool() as exif:
+        _meta = exif.get_metadata(fname)
+
+    # Everything
+    meta_full = Struct()
+    delim = ':'
+    for k, v in _meta.items():
+        if delim in k:
+            group, name = k.split(delim)
+            if not group in meta_full:
+                meta_full[group] = Struct()
+
+            meta_full[group][name] = v
+        else:
+            name = k
+            meta_full[name] = v
+
+    if full:
+        return meta_full
+
+    # Subset
+    exif_keys = ['WhiteBalance', 'ISO', 'FocalLength', 'FNumber',
+                 'ExposureTime', 'ExposureCompensation', 'ApertureValue',
+                 'GPSAltitude', 'GPSAltitudeRef', 'GPSDateStamp', 'GPSLatitude', 'GPSLatitudeRef',
+                 'GPSLongitude', 'GPSLongitudeRef', 'GPSTimeStamp', 'GainControl', 'Sharpness']
+
+    comp_keys = ['HyperfocalDistance', 'FOV', 'ShutterSpeed']
+
+    meta = Struct()
+
+    for k in exif_keys:
+        meta[k] = meta_full.EXIF[k]
+
+    for k in comp_keys:
+        meta[k] = meta_full.Composite[k]
+
+    # Done
+    return meta
 
 #------------------------------------------------
 
