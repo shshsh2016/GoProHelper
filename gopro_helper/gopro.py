@@ -13,6 +13,7 @@ from .monotext_widget import MonoText
 from .task import Task
 
 
+
 class MetadataTask(Task):
     """Task subclass for managing camera metadata
     """
@@ -20,6 +21,11 @@ class MetadataTask(Task):
     _raw_status = None
     _info_status = None
     _time_stamp = 0
+    _data_callback = None
+
+    def __init__(self, data_callback=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._data_callback = data_callback
 
     def initialize(self):
         super().initialize()
@@ -49,12 +55,16 @@ class MetadataTask(Task):
         raw_status, raw_settings = raw_status_settings
 
         if not raw_status:
-            self._raw_settings = None
             self._raw_status = None
+            self._raw_settings = None
             self._info_status = None
 
             return
             # raise ValueError('Unexpected value for raw_status: {}'.format(raw_status))
+
+        # Share raw data with peers?
+        if self._data_callback:
+            self._data_callback(raw_status_settings)
 
         # Process status subset
         info_status_full = api.parse_status_names(raw_status)
@@ -75,12 +85,13 @@ class MetadataTask(Task):
 
         self._time_stamp = time.time()
 
-    def update(self, raw_status_settings=None):
+
+    def update(self, raw_status_settings=None, force=False, **kwargs):
         """Update internal state information
         """
-        super().update()
+        super().update(**kwargs)
 
-        if not raw_status_settings and not self.stale:
+        if not raw_status_settings and not self.stale and not force:
             # No new data, old data still fresh
             return
 
@@ -106,24 +117,26 @@ class Status(MetadataTask):
     """
     _widget = None
 
-    def __init__(self, auto_start=True, *args, **kwargs):
+    def __init__(self, auto_start=True, auto_display=False, *args, **kwargs):
         super().__init__(auto_start=auto_start, *args, **kwargs)
+        self._auto_display = auto_display
 
     def initialize(self):
         super().initialize()
 
         self._widget = MonoText()
         self._widget.text = 'waiting for data...'
-        self.display()
+        if self._auto_display:
+            self.display()
 
     def display(self):
         if self._widget:
             IPython.display.display(self._widget)
 
-    def update(self, raw_status_settings=None):
+    def update(self, raw_status_settings=None, **kwargs):
         """Update internal data and displayed widgets
         """
-        super().update(raw_status_settings=raw_status_settings)
+        super().update(raw_status_settings=raw_status_settings, **kwargs)
         self._update_widget()
 
     def _update_widget(self):
@@ -205,24 +218,27 @@ class Settings(MetadataTask):
     _wid_box = None
     _mode = None
 
-    def __init__(self, auto_start=True, *args, **kwargs):
+    def __init__(self, auto_start=True, auto_display=False, *args, **kwargs):
         super().__init__(auto_start=auto_start, *args, **kwargs)
+        self._auto_display = auto_display
 
     def initialize(self):
         super().initialize()
 
         self._update_mode()
         self._generate_widgets()
-        self.display()
+
+        if self._auto_display:
+            self.display()
 
     def display(self):
         if self._wid_box:
             IPython.display.display(self._wid_box)
 
-    def update(self, raw_status_settings=None):
+    def update(self, raw_status_settings=None, **kwargs):
         """Update internal data and displayed widgets
         """
-        super().update(raw_status_settings=raw_status_settings)
+        super().update(raw_status_settings=raw_status_settings, **kwargs)
         changed = self._update_mode()
         if changed:
             self._generate_widgets()
@@ -235,7 +251,7 @@ class Settings(MetadataTask):
     def _update_mode(self):
         """Update camera mode, return True if mode has changed
         """
-        new_mode = self._info_status.mode   # if new mode this value will be different from self._mode
+        new_mode = self._info_status.mode
 
         if new_mode not in api.features:
             raise ValueError('Unexpected mode value: {}'.format(new_mode))
@@ -271,11 +287,12 @@ class Settings(MetadataTask):
     def _update_widgets(self):
         """Update displayed widgets with current camera settings
         """
-        for f_name, wid in self._widgets.items():
-            fid = api.feature_name_id(self._mode, f_name)
-            value_new = self._raw_settings[fid]
-            if wid.value != value_new:
-                wid.value = value_new
+        if self._widgets:
+            for f_name, wid in self._widgets.items():
+                fid = api.feature_name_id(self._mode, f_name)
+                value_new = self._raw_settings[fid]
+                if wid.value != value_new:
+                    wid.value = value_new
 
     def _close_widgets(self):
         """Close dropdown widgets inside container box widget
@@ -298,6 +315,43 @@ class Settings(MetadataTask):
             self._wid_box = None
 
 
+
+class GoPro():
+    """Simple container
+    """
+    _widget = None
+
+    def __init__(self):
+
+        self._settings = Settings(auto_start=True, auto_display=False, interval=10)
+        self._status = Status(auto_start=True, auto_display=False, interval=2,
+                              data_callback=self._settings.update)
+
+        while self._status._widget is None:
+            time.sleep(0.01)
+
+        while self._settings._wid_box is None:
+            time.sleep(0.01)
+
+
+        self._widget = ipywidgets.HBox([self._settings._wid_box, self._status._widget])
+
+        self.display()
+
+    @property
+    def status(self):
+        return self._status._info_status
+
+    def update(self):
+        self._status.update(force=True)
+
+    def display(self):
+        if self._widget:
+            IPython.display.display(self._widget)
+
+    def close(self):
+        self._status.stop()
+        self._settings.stop()
 
 #------------------------------------------------
 

@@ -101,6 +101,17 @@ def get_raw_status_settings():
     return raw_status, raw_settings
 
 
+def wait_not_busy(interval=0.1):
+    t0 = time.time()
+    flag = True
+    while flag:
+        time.sleep(interval)
+        raw_status, raw_settings = get_raw_status_settings()
+        info_status = api.parse_status_names(raw_status)
+
+        flag = info_status.system_busy
+
+    return time.time() - t0
 
 #------------------------------------------------
 
