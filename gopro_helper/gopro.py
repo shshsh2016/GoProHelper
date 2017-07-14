@@ -117,7 +117,7 @@ class Status(MetadataTask):
     """
     _widget = None
 
-    def __init__(self, auto_start=True, auto_display=False, *args, **kwargs):
+    def __init__(self, auto_start=True, auto_display=True, *args, **kwargs):
         super().__init__(auto_start=auto_start, *args, **kwargs)
         self._auto_display = auto_display
 
@@ -218,7 +218,7 @@ class Settings(MetadataTask):
     _wid_box = None
     _mode = None
 
-    def __init__(self, auto_start=True, auto_display=False, *args, **kwargs):
+    def __init__(self, auto_start=True, auto_display=True, *args, **kwargs):
         super().__init__(auto_start=auto_start, *args, **kwargs)
         self._auto_display = auto_display
 
@@ -324,8 +324,7 @@ class GoPro():
     def __init__(self):
 
         self._settings = Settings(auto_start=True, auto_display=False, interval=10)
-        self._status = Status(auto_start=True, auto_display=False, interval=2,
-                              data_callback=self._settings.update)
+        self._status = Status(auto_start=True, auto_display=False, interval=2)
 
         while self._status._widget is None:
             time.sleep(0.01)
@@ -349,7 +348,7 @@ class GoPro():
         if self._widget:
             IPython.display.display(self._widget)
 
-    def close(self):
+    def stop(self):
         self._status.stop()
         self._settings.stop()
 
